@@ -4,3 +4,22 @@
   body { min-width: 320px; }
   h1, h2, h3 { text-wrap: balance; }
 }
+
+.warehouse-hero {
+  background-color: hsl(var(--secondary));
+  background-image:
+    linear-gradient(155deg, transparent 0 28%, hsl(var(--secondary-foreground) / .16) 28% 29%, transparent 29% 58%, hsl(var(--secondary-foreground) / .13) 58% 59%, transparent 59%),
+    linear-gradient(25deg, hsl(var(--secondary-foreground) / .18) 0 8%, transparent 8% 22%, hsl(var(--card) / .72) 22% 42%, transparent 42% 54%, hsl(var(--secondary-foreground) / .12) 54% 66%, transparent 66%),
+    linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--secondary-foreground) / .34) 100%);
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+  box-shadow: 0 8px 24px hsl(var(--foreground) / .08);
+}
+.supplier-image {
+  display: grid;
+  place-items: center;
+  background-color: hsl(var(--secondary));
+  background-image: linear-gradient(145deg, hsl(var(--card) / .2), transparent 52%), linear-gradient(25deg, transparent 40%, hsl(var(--secondary-foreground) / .14) 41% 58%, transparent 59%);
+}
+.supplier-image-2 { background-color: hsl(var(--surface-container-high, var(--secondary))); }
+.supplier-image-3 { background-color: hsl(var(--primary-fixed)); }
+.supplier-image-4 { background-color: hsl(var(--secondary-fixed)); }
