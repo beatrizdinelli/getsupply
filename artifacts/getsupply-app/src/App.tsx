@@ -32,12 +32,15 @@ import { Badge } from "@workspace/getsupply-design-system/components/ui/badge";
 import { SupplierCard } from "@workspace/getsupply-design-system/components/ui/supplier-card";
 import { StatusBadge } from "@workspace/getsupply-design-system/components/ui/status-badge";
 import {
+  createEvaluation,
   createProposal,
   createBuyerSession,
   createRfq,
   getRfq,
+  listEvaluations,
   listProposals,
 } from "@workspace/api-client-react";
+import type { Evaluation } from "@workspace/api-client-react";
 
 type Supplier = {
   id: string;
@@ -56,12 +59,71 @@ type Proposal = {
   id: string;
   rfqId: string;
   supplierId: string;
+  supplierName: string;
   price: number;
   leadTime: string;
   moq: string;
   note: string;
   status: string;
 };
+
+function ProposalEvaluation({ proposal }: { proposal: Proposal }) {
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [score, setScore] = useState(0);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    listEvaluations(proposal.id)
+      .then((items) => {
+        if (active) setEvaluation(items[0] ?? null);
+      })
+      .catch(() => {
+        if (active) setError("Não foi possível carregar a avaliação.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [proposal.id]);
+
+  const submit = async (event: any) => {
+    event.preventDefault();
+    if (!score) {
+      setError("Escolha uma nota de 1 a 5.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const saved = await createEvaluation(proposal.id, {
+        score,
+        comment: comment.trim() || undefined,
+      });
+      setEvaluation(saved);
+    } catch {
+      setError("Não foi possível salvar a avaliação. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <p className="mt-4 border-t pt-4 text-xs text-muted-foreground" data-testid={`status-evaluation-loading-${proposal.id}`}>Carregando avaliação...</p>;
+  }
+
+  if (evaluation) {
+    return <div className="mt-4 border-t pt-4" data-testid={`evaluation-saved-${proposal.id}`}><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold">Sua avaliação</p><div className="flex" aria-label={`${evaluation.score} de 5 estrelas`}>{[1, 2, 3, 4, 5].map((value) => <Star key={value} className={`h-4 w-4 ${value <= evaluation.score ? "fill-primary text-primary" : "text-muted-foreground/40"}`} />)}</div></div>{evaluation.comment && <p className="mt-2 text-sm leading-6 text-muted-foreground" data-testid={`text-evaluation-comment-${proposal.id}`}>{evaluation.comment}</p>}</div>;
+  }
+
+  return <form onSubmit={submit} className="mt-4 space-y-3 border-t pt-4" data-testid={`form-evaluation-${proposal.id}`}><div><p className="text-sm font-semibold">Avalie esta proposta</p><p className="mt-1 text-xs text-muted-foreground">Como foi sua experiência com esta escolha?</p></div><div className="flex gap-1" role="group" aria-label="Nota da proposta">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" onClick={() => { setScore(value); setError(""); }} className="rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} aria-pressed={score === value} data-testid={`button-score-${proposal.id}-${value}`}><Star className={`h-6 w-6 transition-colors ${value <= score ? "fill-primary text-primary" : "text-muted-foreground/40 hover:text-primary"}`} /></button>)}</div><Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Conte o que pesou na sua decisão (opcional)" className="min-h-20" maxLength={500} data-testid={`input-evaluation-comment-${proposal.id}`} />{error && <p className="text-xs font-medium text-destructive" role="alert" data-testid={`status-evaluation-error-${proposal.id}`}>{error}</p>}<Button type="submit" size="sm" disabled={submitting} data-testid={`button-save-evaluation-${proposal.id}`}>{submitting ? "Salvando..." : "Salvar avaliação"}</Button></form>;
+}
 type RFQ = {
   id: string;
   title: string;
@@ -138,7 +200,7 @@ function RfqDetail() {
   if (!r) return <Shell><p className="py-16 text-center text-sm text-muted-foreground">Carregando RFQ...</p></Shell>;
   const invited = r.supplierIds.length ? suppliers.filter((s) => r.supplierIds.includes(s.id)) : suppliers;
   const submit = async (e: any) => { e.preventDefault(); const supplier = suppliers.find((s) => s.id === form.supplierId)!; const proposal = await createProposal(r.id, { supplierId: supplier.id, supplierName: supplier.companyName, price: Number(form.price), leadTime: form.leadTime, moq: form.moq, note: form.note }); setProposals([proposal, ...proposals]); setR({ ...r, status: "received" }); setForm({ ...form, price: "", leadTime: "", moq: "", note: "" }); };
-  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Visão geral</Link><div><div className="flex gap-2"><Badge variant="secondary">{r.category}</Badge><StatusBadge status={r.status} /></div><h1 className="mt-3 font-serif text-4xl">{r.title}</h1><p className="mt-2 text-muted-foreground">{r.quantity} · prazo {r.deadline} · {r.region}</p></div><div className="mt-8 grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle>Especificações</CardTitle></CardHeader><CardContent><p className="text-sm leading-7 text-muted-foreground">{r.specification}</p><h3 className="mt-7 text-sm font-semibold">Fornecedores convidados ({invited.length})</h3><div className="mt-3 space-y-2">{invited.map((s) => <Link href={`/suppliers/${s.id}`} className="flex items-center justify-between rounded-lg bg-secondary/60 p-3 text-sm" key={s.id}><span className="font-medium">{s.companyName}</span><span className="text-muted-foreground">{s.rating} <Star className="inline h-3 w-3 fill-primary text-primary" /></span></Link>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Propostas recebidas</CardTitle></CardHeader><CardContent className="space-y-3">{proposals.map((p) => <div className="rounded-lg border p-4" key={p.id}><div className="flex justify-between"><b>{p.supplierName}</b><strong className="text-primary">R$ {p.price.toLocaleString("pt-BR")}</strong></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span><Clock3 className="mr-1 inline h-3 w-3" />{p.leadTime}</span><span>MOQ {p.moq}</span></div>{p.note && <p className="mt-3 text-sm text-muted-foreground">{p.note}</p>}</div>)}{!proposals.length && <p className="py-6 text-sm text-muted-foreground">As propostas aparecerão aqui quando os fornecedores responderem.</p>}</CardContent></Card></div><Card className="mt-6"><CardHeader><CardTitle>Enviar uma proposta de demonstração</CardTitle></CardHeader><CardContent><form onSubmit={submit} className="grid gap-4 sm:grid-cols-5"><select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="h-9 rounded-md border bg-transparent px-3 text-sm">{invited.map((s) => <option value={s.id} key={s.id}>{s.companyName}</option>)}</select><Input required placeholder="Preço total (R$)" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input required aria-label="Prazo de entrega" type="date" value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} /><Input required placeholder="MOQ (un.)" value={form.moq} onChange={(e) => setForm({ ...form, moq: e.target.value })} /><Button type="submit"><Send />Enviar</Button></form></CardContent></Card></Shell>;
+  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Visão geral</Link><div><div className="flex gap-2"><Badge variant="secondary">{r.category}</Badge><StatusBadge status={r.status} /></div><h1 className="mt-3 font-serif text-4xl">{r.title}</h1><p className="mt-2 text-muted-foreground">{r.quantity} · prazo {r.deadline} · {r.region}</p></div><div className="mt-8 grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle>Especificações</CardTitle></CardHeader><CardContent><p className="text-sm leading-7 text-muted-foreground">{r.specification}</p><h3 className="mt-7 text-sm font-semibold">Fornecedores convidados ({invited.length})</h3><div className="mt-3 space-y-2">{invited.map((s) => <Link href={`/suppliers/${s.id}`} className="flex items-center justify-between rounded-lg bg-secondary/60 p-3 text-sm" key={s.id}><span className="font-medium">{s.companyName}</span><span className="text-muted-foreground">{s.rating} <Star className="inline h-3 w-3 fill-primary text-primary" /></span></Link>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Propostas recebidas</CardTitle></CardHeader><CardContent className="space-y-3">{proposals.map((p) => <div className="rounded-lg border p-4" key={p.id} data-testid={`card-proposal-${p.id}`}><div className="flex justify-between"><b>{p.supplierName}</b><strong className="text-primary">R$ {p.price.toLocaleString("pt-BR")}</strong></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span><Clock3 className="mr-1 inline h-3 w-3" />{p.leadTime}</span><span>MOQ {p.moq}</span></div>{p.note && <p className="mt-3 text-sm text-muted-foreground">{p.note}</p>}{p.status === "accepted" && <ProposalEvaluation proposal={p} />}</div>)}{!proposals.length && <p className="py-6 text-sm text-muted-foreground">As propostas aparecerão aqui quando os fornecedores responderem.</p>}</CardContent></Card></div><Card className="mt-6"><CardHeader><CardTitle>Enviar uma proposta de demonstração</CardTitle></CardHeader><CardContent><form onSubmit={submit} className="grid gap-4 sm:grid-cols-5"><select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="h-9 rounded-md border bg-transparent px-3 text-sm">{invited.map((s) => <option value={s.id} key={s.id}>{s.companyName}</option>)}</select><Input required placeholder="Preço total (R$)" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input required aria-label="Prazo de entrega" type="date" value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} /><Input required placeholder="MOQ (un.)" value={form.moq} onChange={(e) => setForm({ ...form, moq: e.target.value })} /><Button type="submit"><Send />Enviar</Button></form></CardContent></Card></Shell>;
 }
 
 function Apply() {
