@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, Route, Switch, useLocation, useParams } from "wouter";
 import {
   ArrowRight,
@@ -31,6 +31,16 @@ import { Textarea } from "@workspace/getsupply-design-system/components/ui/texta
 import { Badge } from "@workspace/getsupply-design-system/components/ui/badge";
 import { SupplierCard } from "@workspace/getsupply-design-system/components/ui/supplier-card";
 import { StatusBadge } from "@workspace/getsupply-design-system/components/ui/status-badge";
+import {
+  createEvaluation,
+  createProposal,
+  createBuyerSession,
+  createRfq,
+  getRfq,
+  listEvaluations,
+  listProposals,
+} from "@workspace/api-client-react";
+import type { Evaluation } from "@workspace/api-client-react";
 
 type Supplier = {
   id: string;
@@ -49,12 +59,71 @@ type Proposal = {
   id: string;
   rfqId: string;
   supplierId: string;
+  supplierName: string;
   price: number;
   leadTime: string;
   moq: string;
   note: string;
   status: string;
 };
+
+function ProposalEvaluation({ proposal }: { proposal: Proposal }) {
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [score, setScore] = useState(0);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    listEvaluations(proposal.id)
+      .then((items) => {
+        if (active) setEvaluation(items[0] ?? null);
+      })
+      .catch(() => {
+        if (active) setError("Não foi possível carregar a avaliação.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [proposal.id]);
+
+  const submit = async (event: any) => {
+    event.preventDefault();
+    if (!score) {
+      setError("Escolha uma nota de 1 a 5.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const saved = await createEvaluation(proposal.id, {
+        score,
+        comment: comment.trim() || undefined,
+      });
+      setEvaluation(saved);
+    } catch {
+      setError("Não foi possível salvar a avaliação. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <p className="mt-4 border-t pt-4 text-xs text-muted-foreground" data-testid={`status-evaluation-loading-${proposal.id}`}>Carregando avaliação...</p>;
+  }
+
+  if (evaluation) {
+    return <div className="mt-4 border-t pt-4" data-testid={`evaluation-saved-${proposal.id}`}><div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold">Sua avaliação</p><div className="flex" aria-label={`${evaluation.score} de 5 estrelas`}>{[1, 2, 3, 4, 5].map((value) => <Star key={value} className={`h-4 w-4 ${value <= evaluation.score ? "fill-primary text-primary" : "text-muted-foreground/40"}`} />)}</div></div>{evaluation.comment && <p className="mt-2 text-sm leading-6 text-muted-foreground" data-testid={`text-evaluation-comment-${proposal.id}`}>{evaluation.comment}</p>}</div>;
+  }
+
+  return <form onSubmit={submit} className="mt-4 space-y-3 border-t pt-4" data-testid={`form-evaluation-${proposal.id}`}><div><p className="text-sm font-semibold">Avalie esta proposta</p><p className="mt-1 text-xs text-muted-foreground">Como foi sua experiência com esta escolha?</p></div><div className="flex gap-1" role="group" aria-label="Nota da proposta">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" onClick={() => { setScore(value); setError(""); }} className="rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} aria-pressed={score === value} data-testid={`button-score-${proposal.id}-${value}`}><Star className={`h-6 w-6 transition-colors ${value <= score ? "fill-primary text-primary" : "text-muted-foreground/40 hover:text-primary"}`} /></button>)}</div><Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Conte o que pesou na sua decisão (opcional)" className="min-h-20" maxLength={500} data-testid={`input-evaluation-comment-${proposal.id}`} />{error && <p className="text-xs font-medium text-destructive" role="alert" data-testid={`status-evaluation-error-${proposal.id}`}>{error}</p>}<Button type="submit" size="sm" disabled={submitting} data-testid={`button-save-evaluation-${proposal.id}`}>{submitting ? "Salvando..." : "Salvar avaliação"}</Button></form>;
+}
 type RFQ = {
   id: string;
   title: string;
@@ -74,17 +143,6 @@ const seedSuppliers: Supplier[] = [
   { id: "s3", companyName: "Ateliê do Rótulo", cnpj: "34.567.890/0001-03", categories: ["Rótulos", "Adesivos"], region: "Belo Horizonte, MG", moq: "300 unidades", capacity: "Até 80 mil/mês", rating: 4.7, reviews: 42, verified: true, description: "Rótulos e adesivos premium, com atenção especial a cores e materiais especiais." },
   { id: "s4", companyName: "Casa da Embalagem", cnpj: "45.678.901/0001-04", categories: ["Caixas", "Kits"], region: "Curitiba, PR", moq: "250 unidades", capacity: "Até 20 mil/mês", rating: 4.6, reviews: 14, verified: true, description: "Pequenas tiragens e montagem de kits para lançamentos e datas especiais." },
 ];
-const seedRfqs: RFQ[] = [{ id: "rfq-101", title: "Caixas para coleção de inverno", category: "Caixas", specification: "Caixa rígida 18 × 12 × 6 cm, papel kraft, impressão 1 cor na tampa.", quantity: "1.200 unidades", deadline: "2025-05-30", region: "Sudeste", createdAt: "2025-04-12", status: "received", supplierIds: ["s1", "s4"] }];
-const seedProposals: Proposal[] = [{ id: "p1", rfqId: "rfq-101", supplierId: "s1", price: 6840, leadTime: "18 dias", moq: "500 un.", note: "Inclui prova de cor e embalagem para transporte.", status: "received" }];
-
-function useStore<T>(key: string, initial: T): [T, (v: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    try { return JSON.parse(localStorage.getItem(key) || "null") ?? initial; } catch { return initial; }
-  });
-  const save = (next: T) => { setValue(next); localStorage.setItem(key, JSON.stringify(next)); };
-  return [value, save];
-}
-
 function Logo() {
   return <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight"><span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Package className="h-4 w-4" /></span>GetSupply</Link>;
 }
@@ -96,8 +154,7 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 function Home() {
-  const [rfqs] = useStore<RFQ[]>("gs-rfqs", seedRfqs);
-  const [suppliers] = useStore<Supplier[]>("gs-suppliers", seedSuppliers);
+  const suppliers = seedSuppliers;
   const steps = [["1", "Descubra o que precisa", "Especifique materiais, medidas e quantidades no seu pedido."], ["2", "Receba propostas", "Fornecedores verificados enviam orçamentos diretamente para você."], ["3", "Compare e escolha", "Avalie preço, prazo e avaliações para fazer a melhor escolha."]];
   return <div className="min-h-screen bg-background pb-20 text-foreground md:pb-0"><header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur"><div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:h-16 md:px-10"><Logo /><nav className="hidden items-center gap-1 md:flex"><Link href="/" className="rounded-full bg-secondary px-4 py-2 text-sm font-medium">Início</Link><Link href="/suppliers" className="rounded-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Fornecedores</Link></nav><Link href="/login" className="hidden text-sm text-muted-foreground md:block">Entrar</Link><Link href="/login" className="md:hidden" aria-label="Abrir perfil"><UserCircle className="h-5 w-5 text-primary" /></Link></div></header><main className="mx-auto max-w-2xl px-4 py-5 md:max-w-6xl md:px-10 md:py-10"><section className="grid items-center gap-8 md:grid-cols-2 md:gap-14"><div className="order-2 md:order-1"><p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-primary">GetSupply para sua marca</p><h1 className="max-w-xl text-3xl font-bold leading-tight tracking-tight md:text-5xl">Encontre fornecedores de embalagens <span className="font-serif italic font-normal">sem perder tempo.</span></h1><p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground md:text-base">Conectamos você a fornecedores confiáveis para criar embalagens bonitas, no volume certo e dentro do seu prazo.</p><Link href="/rfqs/new" className="mt-6 inline-flex"><Button size="lg" className="rounded-xl px-7"><Plus />Solicitar cotação</Button></Link></div><div className="warehouse-hero order-1 h-56 rounded-2xl md:order-2 md:h-80" role="img" aria-label="Galpão de embalagens com caixas prontas para envio" /></section><section className="mt-12 md:mt-20"><div className="text-center"><h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Como funciona</h2><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-muted-foreground">Três passos simples para encontrar a embalagem perfeita.</p></div><div className="mt-6 grid gap-3 md:grid-cols-3 md:gap-5">{steps.map(([number, title, copy]) => <Card key={number} className="border-0 bg-card shadow-sm"><CardContent className="p-5 md:p-6"><span className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-sm font-semibold text-primary">{number}</span><h3 className="mt-4 text-sm font-semibold">{title}</h3><p className="mt-2 text-xs leading-5 text-muted-foreground">{copy}</p></CardContent></Card>)}</div></section><section className="mt-12 md:mt-20"><div className="flex items-end justify-between"><div><h2 className="text-2xl font-semibold tracking-tight">Fornecedores em destaque</h2><p className="mt-1 text-xs text-muted-foreground">Parceiros de confiança prontos para atender sua demanda.</p></div><Link href="/suppliers" className="hidden text-xs font-semibold text-primary sm:block">Ver todos <ArrowRight className="ml-1 inline h-3 w-3" /></Link></div><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{suppliers.map((s, i) => <Link href={`/suppliers/${s.id}`} key={s.id}><Card className="overflow-hidden transition-transform hover:-translate-y-0.5"><div className={`supplier-image supplier-image-${i + 1} h-32`} aria-hidden="true"><Package className="h-8 w-8 text-primary/50" /></div><CardContent className="p-4"><div className="flex items-start justify-between gap-2"><div><h3 className="text-sm font-semibold">{s.companyName}</h3><p className="mt-1 text-[11px] text-muted-foreground">{s.categories.join(" · ")}</p></div><span className="flex items-center gap-1 text-xs font-semibold text-primary"><Star className="h-3 w-3 fill-primary" />{s.rating}</span></div><p className="mt-3 text-[11px] text-muted-foreground">MOQ mínimo: <b className="text-foreground">{s.moq}</b></p><Button variant="outline" size="sm" className="mt-4 w-full">Ver perfil</Button></CardContent></Card></Link>)}</div></section></main><nav className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-4 border-t bg-background/95 px-2 backdrop-blur md:hidden"><Link href="/" className="flex flex-col items-center justify-center gap-1 text-primary"><HomeIcon className="h-4 w-4" /><span className="text-[10px] font-semibold">Início</span></Link><Link href="/rfqs/new" className="flex flex-col items-center justify-center gap-1 text-muted-foreground"><FileText className="h-4 w-4" /><span className="text-[10px]">Cotações</span></Link><Link href="/login" className="flex flex-col items-center justify-center gap-1 text-muted-foreground"><MessageCircle className="h-4 w-4" /><span className="text-[10px]">Mensagens</span></Link><Link href="/login" className="flex flex-col items-center justify-center gap-1 text-muted-foreground"><UserCircle className="h-4 w-4" /><span className="text-[10px]">Perfil</span></Link></nav></div>;
 }
@@ -108,15 +165,15 @@ function Field({ label, name, placeholder, type = "text", value, onChange }: any
 
 function NewRfq() {
   const [, setLoc] = useLocation();
-  const [rfqs, save] = useStore<RFQ[]>("gs-rfqs", seedRfqs);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ title: "", category: "Caixas", specification: "", quantity: "", deadline: "", region: "Sudeste" });
   const update = (e: any) => setForm({ ...form, [e.target.name]: e.target.value });
-  const submit = (e: any) => { e.preventDefault(); const r = { ...form, id: `rfq-${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10), status: "waiting" as const, supplierIds: [] }; save([r, ...rfqs]); setLoc(`/rfqs/${r.id}`); };
-  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Voltar</Link><div className="mx-auto max-w-2xl"><p className="text-sm font-medium text-primary">Novo pedido</p><h1 className="mt-2 font-serif text-4xl">Conte o que você está imaginando.</h1><p className="mt-3 text-muted-foreground">Quanto mais contexto, melhores serão as propostas que chegam até você.</p><Card className="mt-8"><CardContent className="p-6 sm:p-8"><form onSubmit={submit} className="space-y-6"><Field label="Nome do projeto" name="title" placeholder="Ex.: Caixas para coleção de inverno" value={form.title} onChange={update} /><div className="grid gap-5 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Categoria<select name="category" value={form.category} onChange={update} className="mt-2 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"><option>Caixas</option><option>Sacolas</option><option>Rótulos</option><option>Kits</option></select></label><Field label="Quantidade" name="quantity" placeholder="Ex.: 1.200 unidades" value={form.quantity} onChange={update} /></div><label className="block space-y-2 text-sm font-medium">Especificações<Textarea name="specification" value={form.specification} onChange={update} placeholder="Materiais, dimensões, acabamentos, cores..." className="mt-2 min-h-28" /></label><div className="grid gap-5 sm:grid-cols-2"><Field label="Prazo desejado" name="deadline" type="date" value={form.deadline} onChange={update} /><Field label="Região de entrega" name="region" placeholder="Ex.: Sudeste" value={form.region} onChange={update} /></div><label className="block rounded-lg border border-dashed p-4 text-sm text-muted-foreground"><FileText className="mr-2 inline h-4 w-4" />Anexar desenho técnico (opcional)<input type="file" className="mt-2 block w-full text-xs" /></label><Button type="submit" className="w-full" size="lg">Criar RFQ <ArrowRight /></Button></form></CardContent></Card></div></Shell>;
+  const submit = async (e: any) => { e.preventDefault(); setSubmitting(true); try { const r = await createRfq(form); setLoc(`/rfqs/${r.id}`); } finally { setSubmitting(false); } };
+  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Voltar</Link><div className="mx-auto max-w-2xl"><p className="text-sm font-medium text-primary">Novo pedido</p><h1 className="mt-2 font-serif text-4xl">Conte o que você está imaginando.</h1><p className="mt-3 text-muted-foreground">Quanto mais contexto, melhores serão as propostas que chegam até você.</p><Card className="mt-8"><CardContent className="p-6 sm:p-8"><form onSubmit={submit} className="space-y-6"><Field label="Nome do projeto" name="title" placeholder="Ex.: Caixas para coleção de inverno" value={form.title} onChange={update} /><div className="grid gap-5 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Categoria<select name="category" value={form.category} onChange={update} className="mt-2 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"><option>Caixas</option><option>Potes</option><option>Rótulos</option><option>Sacos</option></select></label><Field label="Quantidade" name="quantity" placeholder="Ex.: 1.200 unidades" value={form.quantity} onChange={update} /></div><label className="block space-y-2 text-sm font-medium">Especificações<Textarea name="specification" value={form.specification} onChange={update} placeholder="Materiais, dimensões, acabamentos, cores..." className="mt-2 min-h-28" /></label><div className="grid gap-5 sm:grid-cols-2"><Field label="Prazo desejado" name="deadline" type="date" value={form.deadline} onChange={update} /><Field label="Região de entrega" name="region" placeholder="Ex.: Sudeste" value={form.region} onChange={update} /></div><label className="block rounded-lg border border-dashed p-4 text-sm text-muted-foreground"><FileText className="mr-2 inline h-4 w-4" />Anexar desenho técnico (opcional)<input type="file" className="mt-2 block w-full text-xs" /></label><Button type="submit" disabled={submitting} className="w-full" size="lg">{submitting ? "Salvando..." : "Criar RFQ"} <ArrowRight /></Button></form></CardContent></Card></div></Shell>;
 }
 
 function Suppliers() {
-  const [suppliers] = useStore<Supplier[]>("gs-suppliers", seedSuppliers);
+  const suppliers = seedSuppliers;
   const [q, setQ] = useState("");
   const list = suppliers.filter((s) => `${s.companyName} ${s.categories.join(" ")} ${s.region}`.toLowerCase().includes(q.toLowerCase()));
   return <Shell><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-sm font-medium text-primary">Fornecedores GetSupply</p><h1 className="mt-2 font-serif text-4xl">Fornecedores que<br /><i>entendem o começo.</i></h1></div><div className="relative sm:w-64"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar fornecedor" className="pl-9" /></div></div><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{list.map((s) => <SupplierCard key={s.id} name={s.companyName} category={s.categories[0]} rating={s.rating} reviewCount={s.reviews} moq={s.moq} verified={s.verified} location={s.region} actionLabel="Ver perfil" onAction={() => window.location.href = `/suppliers/${s.id}`} />)}</div>{!list.length && <Card className="mt-8"><CardContent className="p-10 text-center"><Search className="mx-auto h-8 w-8 text-muted-foreground" /><h2 className="mt-3 font-semibold">Nenhum fornecedor encontrado</h2><p className="mt-1 text-sm text-muted-foreground">Tente buscar por outra categoria ou região.</p></CardContent></Card>}</Shell>;
@@ -124,7 +181,7 @@ function Suppliers() {
 
 function SupplierProfile() {
   const { id } = useParams();
-  const [suppliers] = useStore<Supplier[]>("gs-suppliers", seedSuppliers);
+  const suppliers = seedSuppliers;
   const s = suppliers.find((x) => x.id === id) || suppliers[0];
   return <Shell><Link href="/suppliers" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Fornecedores</Link><div className="grid gap-6 lg:grid-cols-[1fr_340px]"><Card><CardContent className="p-6 sm:p-9"><div className="flex flex-col gap-5 sm:flex-row sm:items-center"><div className="grid h-20 w-20 place-items-center rounded-2xl bg-secondary"><Package className="h-9 w-9 text-primary" /></div><div><div className="flex items-center gap-2"><h1 className="font-serif text-4xl">{s.companyName}</h1>{s.verified && <ShieldCheck className="h-5 w-5 text-primary" />}</div><p className="mt-1 text-muted-foreground">{s.region} · CNPJ {s.cnpj}</p><div className="mt-3 flex items-center gap-2"><Star className="h-4 w-4 fill-primary text-primary" /><b>{s.rating}</b><span className="text-sm text-muted-foreground">({s.reviews} avaliações)</span></div></div></div><p className="mt-9 max-w-2xl leading-7 text-muted-foreground">{s.description}</p><h2 className="mt-9 text-lg font-semibold">O que fazem bem</h2><div className="mt-3 flex flex-wrap gap-2">{s.categories.map((c) => <Badge variant="secondary" key={c}>{c}</Badge>)}</div></CardContent></Card><Card className="h-fit"><CardHeader><CardTitle>Dados rápidos</CardTitle></CardHeader><CardContent className="space-y-4 text-sm"><Info label="Pedido mínimo" value={s.moq} /><Info label="Capacidade" value={s.capacity} /><Info label="Região" value={s.region} /><Link href="/rfqs/new" className="block pt-3"><Button className="w-full"><Send />Criar um RFQ</Button></Link></CardContent></Card></div></Shell>;
 }
@@ -135,14 +192,15 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function RfqDetail() {
   const { id } = useParams();
-  const [rfqs, saveRfqs] = useStore<RFQ[]>("gs-rfqs", seedRfqs);
-  const [proposals, saveProps] = useStore<Proposal[]>("gs-proposals", seedProposals);
-  const [suppliers] = useStore<Supplier[]>("gs-suppliers", seedSuppliers);
-  const r = rfqs.find((x) => x.id === id) || rfqs[0];
-  const [form, setForm] = useState({ supplierId: r?.supplierIds[0] || "s1", price: "", leadTime: "", moq: "", note: "" });
-  const invited = suppliers.filter((s) => r?.supplierIds.includes(s.id));
-  const submit = (e: any) => { e.preventDefault(); saveProps([...proposals, { ...form, id: `p-${Date.now()}`, rfqId: r.id, price: Number(form.price), status: "received" }]); saveRfqs(rfqs.map((x) => x.id === r.id ? { ...x, status: "received" } : x)); setForm({ ...form, price: "", leadTime: "", moq: "", note: "" }); };
-  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Visão geral</Link><div><div className="flex gap-2"><Badge variant="secondary">{r.category}</Badge><StatusBadge status={r.status} /></div><h1 className="mt-3 font-serif text-4xl">{r.title}</h1><p className="mt-2 text-muted-foreground">{r.quantity} · prazo {r.deadline} · {r.region}</p></div><div className="mt-8 grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle>Especificações</CardTitle></CardHeader><CardContent><p className="text-sm leading-7 text-muted-foreground">{r.specification}</p><h3 className="mt-7 text-sm font-semibold">Fornecedores convidados ({invited.length})</h3><div className="mt-3 space-y-2">{invited.map((s) => <Link href={`/suppliers/${s.id}`} className="flex items-center justify-between rounded-lg bg-secondary/60 p-3 text-sm" key={s.id}><span className="font-medium">{s.companyName}</span><span className="text-muted-foreground">{s.rating} <Star className="inline h-3 w-3 fill-primary text-primary" /></span></Link>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Propostas recebidas</CardTitle></CardHeader><CardContent className="space-y-3">{proposals.filter((p) => p.rfqId === r.id).map((p) => { const s = suppliers.find((x) => x.id === p.supplierId); return <div className="rounded-lg border p-4" key={p.id}><div className="flex justify-between"><b>{s?.companyName}</b><strong className="text-primary">R$ {p.price.toLocaleString("pt-BR")}</strong></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span><Clock3 className="mr-1 inline h-3 w-3" />{p.leadTime}</span><span>MOQ {p.moq}</span></div>{p.note && <p className="mt-3 text-sm text-muted-foreground">{p.note}</p>}</div>; })}{!proposals.filter((p) => p.rfqId === r.id).length && <p className="py-6 text-sm text-muted-foreground">As propostas aparecerão aqui quando os fornecedores responderem.</p>}</CardContent></Card></div><Card className="mt-6"><CardHeader><CardTitle>Enviar uma proposta de demonstração</CardTitle></CardHeader><CardContent><form onSubmit={submit} className="grid gap-4 sm:grid-cols-4"><select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="h-9 rounded-md border bg-transparent px-3 text-sm">{invited.map((s) => <option value={s.id} key={s.id}>{s.companyName}</option>)}</select><Input placeholder="Preço total (R$)" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input placeholder="Prazo de produção" value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} /><Button type="submit"><Send />Enviar</Button></form></CardContent></Card></Shell>;
+  const suppliers = seedSuppliers;
+  const [r, setR] = useState<RFQ | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [form, setForm] = useState({ supplierId: "s1", price: "", leadTime: "", moq: "", note: "" });
+  useEffect(() => { if (!id) return; Promise.all([getRfq(id), listProposals(id)]).then(([rfq, items]) => { setR(rfq); setProposals(items); }); }, [id]);
+  if (!r) return <Shell><p className="py-16 text-center text-sm text-muted-foreground">Carregando RFQ...</p></Shell>;
+  const invited = r.supplierIds.length ? suppliers.filter((s) => r.supplierIds.includes(s.id)) : suppliers;
+  const submit = async (e: any) => { e.preventDefault(); const supplier = suppliers.find((s) => s.id === form.supplierId)!; const proposal = await createProposal(r.id, { supplierId: supplier.id, supplierName: supplier.companyName, price: Number(form.price), leadTime: form.leadTime, moq: form.moq, note: form.note }); setProposals([proposal, ...proposals]); setR({ ...r, status: "received" }); setForm({ ...form, price: "", leadTime: "", moq: "", note: "" }); };
+  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Visão geral</Link><div><div className="flex gap-2"><Badge variant="secondary">{r.category}</Badge><StatusBadge status={r.status} /></div><h1 className="mt-3 font-serif text-4xl">{r.title}</h1><p className="mt-2 text-muted-foreground">{r.quantity} · prazo {r.deadline} · {r.region}</p></div><div className="mt-8 grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle>Especificações</CardTitle></CardHeader><CardContent><p className="text-sm leading-7 text-muted-foreground">{r.specification}</p><h3 className="mt-7 text-sm font-semibold">Fornecedores convidados ({invited.length})</h3><div className="mt-3 space-y-2">{invited.map((s) => <Link href={`/suppliers/${s.id}`} className="flex items-center justify-between rounded-lg bg-secondary/60 p-3 text-sm" key={s.id}><span className="font-medium">{s.companyName}</span><span className="text-muted-foreground">{s.rating} <Star className="inline h-3 w-3 fill-primary text-primary" /></span></Link>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Propostas recebidas</CardTitle></CardHeader><CardContent className="space-y-3">{proposals.map((p) => <div className="rounded-lg border p-4" key={p.id} data-testid={`card-proposal-${p.id}`}><div className="flex justify-between"><b>{p.supplierName}</b><strong className="text-primary">R$ {p.price.toLocaleString("pt-BR")}</strong></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span><Clock3 className="mr-1 inline h-3 w-3" />{p.leadTime}</span><span>MOQ {p.moq}</span></div>{p.note && <p className="mt-3 text-sm text-muted-foreground">{p.note}</p>}{p.status === "accepted" && <ProposalEvaluation proposal={p} />}</div>)}{!proposals.length && <p className="py-6 text-sm text-muted-foreground">As propostas aparecerão aqui quando os fornecedores responderem.</p>}</CardContent></Card></div><Card className="mt-6"><CardHeader><CardTitle>Enviar uma proposta de demonstração</CardTitle></CardHeader><CardContent><form onSubmit={submit} className="grid gap-4 sm:grid-cols-5"><select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="h-9 rounded-md border bg-transparent px-3 text-sm">{invited.map((s) => <option value={s.id} key={s.id}>{s.companyName}</option>)}</select><Input required placeholder="Preço total (R$)" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input required aria-label="Prazo de entrega" type="date" value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} /><Input required placeholder="MOQ (un.)" value={form.moq} onChange={(e) => setForm({ ...form, moq: e.target.value })} /><Button type="submit"><Send />Enviar</Button></form></CardContent></Card></Shell>;
 }
 
 function Apply() {
@@ -155,7 +213,17 @@ function Apply() {
 
 function Login() {
   const [, setLoc] = useLocation();
-  return <div className="min-h-screen bg-background px-4 py-10"><div className="mx-auto max-w-4xl"><Logo /><div className="grid items-center gap-10 py-16 md:grid-cols-2"><div><p className="text-sm font-medium text-primary">Um lugar para fazer acontecer</p><h1 className="mt-3 font-serif text-5xl">Bem-vindo à sua próxima boa parceria.</h1><p className="mt-4 text-muted-foreground">Escolha um perfil para explorar a experiência demonstrativa.</p></div><Card><CardHeader><CardTitle>Entrar como</CardTitle></CardHeader><CardContent className="space-y-3">{[["buyer", "Sou uma marca", "Encontrar fornecedores e criar RFQs"], ["supplier", "Sou fornecedor", "Ver meu perfil e oportunidades"]].map(([role, title, desc]) => <button onClick={() => setLoc(role === "buyer" ? "/" : "/supplier/apply")} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary" key={role}><span><b>{title}</b><span className="mt-1 block text-xs text-muted-foreground">{desc}</span></span><ArrowRight className="h-4 w-4 text-primary" /></button>)}</CardContent></Card></div></div></div>;
+  const [submitting, setSubmitting] = useState(false);
+  const enterBuyer = async () => {
+    setSubmitting(true);
+    try {
+      await createBuyerSession();
+      setLoc("/");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return <div className="min-h-screen bg-background px-4 py-10"><div className="mx-auto max-w-4xl"><Logo /><div className="grid items-center gap-10 py-16 md:grid-cols-2"><div><p className="text-sm font-medium text-primary">Um lugar para fazer acontecer</p><h1 className="mt-3 font-serif text-5xl">Bem-vindo à sua próxima boa parceria.</h1><p className="mt-4 text-muted-foreground">Escolha um perfil para explorar a experiência demonstrativa.</p></div><Card><CardHeader><CardTitle>Entrar como</CardTitle></CardHeader><CardContent className="space-y-3"><button disabled={submitting} onClick={enterBuyer} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary disabled:opacity-60"><span><b>Sou uma marca</b><span className="mt-1 block text-xs text-muted-foreground">{submitting ? "Entrando..." : "Encontrar fornecedores e criar RFQs"}</span></span><ArrowRight className="h-4 w-4 text-primary" /></button><button onClick={() => setLoc("/supplier/apply")} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary"><span><b>Sou fornecedor</b><span className="mt-1 block text-xs text-muted-foreground">Ver meu perfil e oportunidades</span></span><ArrowRight className="h-4 w-4 text-primary" /></button></CardContent></Card></div></div></div>;
 }
 
 function App() {

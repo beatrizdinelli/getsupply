@@ -61,6 +61,7 @@ CREATE TABLE rfq (
     id                     SERIAL PRIMARY KEY,
     comprador_id           INTEGER NOT NULL REFERENCES comprador(id),
     categoria_id           INTEGER NOT NULL REFERENCES categoria(id),
+    titulo                 VARCHAR(200) NOT NULL DEFAULT 'Solicitação de cotação',
     especificacao_tecnica  TEXT NOT NULL,
     quantidade             INTEGER NOT NULL CHECK (quantidade > 0),
     prazo_desejado         DATE NOT NULL,
