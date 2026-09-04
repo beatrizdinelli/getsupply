@@ -16,6 +16,8 @@ tags:
     description: Supplier proposal operations
   - name: evaluations
     description: Proposal evaluation operations
+  - name: sessions
+    description: Session operations
 paths:
   /healthz:
     get:
@@ -30,6 +32,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /sessions/buyer:
+    post:
+      operationId: createBuyerSession
+      tags: [sessions]
+      summary: Start a buyer session
+      responses:
+        "201":
+          description: Authenticated buyer session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuyerSession"
   /rfqs:
     get:
       operationId: listRfqs
@@ -226,6 +240,13 @@ components:
       schema:
         type: string
   schemas:
+    BuyerSession:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+      required:
+        - authenticated
     HealthStatus:
       type: object
       properties:

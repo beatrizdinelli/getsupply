@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BuyerSession,
   Error,
   Evaluation,
   EvaluationInput,
@@ -134,6 +135,77 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getCreateBuyerSessionUrl = () => {
+
+
+
+
+  return `/api/sessions/buyer`
+}
+
+/**
+ * @summary Start a buyer session
+ */
+export const createBuyerSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<BuyerSession> => {
+
+  return customFetch<BuyerSession>(getCreateBuyerSessionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateBuyerSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBuyerSession>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBuyerSession>>, TError,void, TContext> => {
+
+const mutationKey = ['createBuyerSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBuyerSession>>, void> = () => {
+
+
+          return  createBuyerSession(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBuyerSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createBuyerSession>>>
+
+    export type CreateBuyerSessionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Start a buyer session
+ */
+export const useCreateBuyerSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBuyerSession>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBuyerSession>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCreateBuyerSessionMutationOptions(options));
+    }
 
 export const getListRfqsUrl = () => {
 

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './buyerSession';
 export * from './error';
 export * from './evaluation';
 export * from './evaluationInput';

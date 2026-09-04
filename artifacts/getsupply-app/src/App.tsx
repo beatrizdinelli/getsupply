@@ -33,6 +33,7 @@ import { SupplierCard } from "@workspace/getsupply-design-system/components/ui/s
 import { StatusBadge } from "@workspace/getsupply-design-system/components/ui/status-badge";
 import {
   createProposal,
+  createBuyerSession,
   createRfq,
   getRfq,
   listProposals,
@@ -150,7 +151,17 @@ function Apply() {
 
 function Login() {
   const [, setLoc] = useLocation();
-  return <div className="min-h-screen bg-background px-4 py-10"><div className="mx-auto max-w-4xl"><Logo /><div className="grid items-center gap-10 py-16 md:grid-cols-2"><div><p className="text-sm font-medium text-primary">Um lugar para fazer acontecer</p><h1 className="mt-3 font-serif text-5xl">Bem-vindo à sua próxima boa parceria.</h1><p className="mt-4 text-muted-foreground">Escolha um perfil para explorar a experiência demonstrativa.</p></div><Card><CardHeader><CardTitle>Entrar como</CardTitle></CardHeader><CardContent className="space-y-3">{[["buyer", "Sou uma marca", "Encontrar fornecedores e criar RFQs"], ["supplier", "Sou fornecedor", "Ver meu perfil e oportunidades"]].map(([role, title, desc]) => <button onClick={() => setLoc(role === "buyer" ? "/" : "/supplier/apply")} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary" key={role}><span><b>{title}</b><span className="mt-1 block text-xs text-muted-foreground">{desc}</span></span><ArrowRight className="h-4 w-4 text-primary" /></button>)}</CardContent></Card></div></div></div>;
+  const [submitting, setSubmitting] = useState(false);
+  const enterBuyer = async () => {
+    setSubmitting(true);
+    try {
+      await createBuyerSession();
+      setLoc("/");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return <div className="min-h-screen bg-background px-4 py-10"><div className="mx-auto max-w-4xl"><Logo /><div className="grid items-center gap-10 py-16 md:grid-cols-2"><div><p className="text-sm font-medium text-primary">Um lugar para fazer acontecer</p><h1 className="mt-3 font-serif text-5xl">Bem-vindo à sua próxima boa parceria.</h1><p className="mt-4 text-muted-foreground">Escolha um perfil para explorar a experiência demonstrativa.</p></div><Card><CardHeader><CardTitle>Entrar como</CardTitle></CardHeader><CardContent className="space-y-3"><button disabled={submitting} onClick={enterBuyer} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary disabled:opacity-60"><span><b>Sou uma marca</b><span className="mt-1 block text-xs text-muted-foreground">{submitting ? "Entrando..." : "Encontrar fornecedores e criar RFQs"}</span></span><ArrowRight className="h-4 w-4 text-primary" /></button><button onClick={() => setLoc("/supplier/apply")} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary"><span><b>Sou fornecedor</b><span className="mt-1 block text-xs text-muted-foreground">Ver meu perfil e oportunidades</span></span><ArrowRight className="h-4 w-4 text-primary" /></button></CardContent></Card></div></div></div>;
 }
 
 function App() {

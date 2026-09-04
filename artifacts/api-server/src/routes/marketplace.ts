@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
-import { asc, desc, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { and, desc, eq } from "drizzle-orm";
 import {
   buyersTable,
   categoriesTable,
@@ -27,6 +28,7 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+const buyerSessionCookie = "getsupply_buyer";
 
 const rfqStatus = {
   aguardando_proposta: "waiting",
@@ -103,22 +105,79 @@ function mapEvaluation(row: typeof evaluationsTable.$inferSelect) {
   };
 }
 
-async function selectRfq(id?: number) {
+function sessionBuyerId(req: Request): number | null {
+  const value = req.signedCookies?.[buyerSessionCookie];
+  const id = typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function requireBuyer(req: Request, res: Response): number | null {
+  const buyerId = sessionBuyerId(req);
+  if (!buyerId) {
+    res.status(401).json({ error: "Entre como comprador para continuar." });
+    return null;
+  }
+  return buyerId;
+}
+
+async function selectRfq(buyerId: number, id?: number) {
   const query = db
     .select({ rfq: rfqsTable, category: categoriesTable.name })
     .from(rfqsTable)
     .innerJoin(categoriesTable, eq(rfqsTable.categoryId, categoriesTable.id))
     .orderBy(desc(rfqsTable.createdAt));
 
-  return id ? query.where(eq(rfqsTable.id, id)) : query;
+  return query.where(
+    id
+      ? and(eq(rfqsTable.buyerId, buyerId), eq(rfqsTable.id, id))
+      : eq(rfqsTable.buyerId, buyerId),
+  );
 }
 
-router.get("/rfqs", async (_req, res): Promise<void> => {
-  const rows = await selectRfq();
+router.post("/sessions/buyer", async (req, res): Promise<void> => {
+  const existingBuyerId = sessionBuyerId(req);
+  if (existingBuyerId) {
+    const [existingBuyer] = await db
+      .select({ id: buyersTable.id })
+      .from(buyersTable)
+      .where(eq(buyersTable.id, existingBuyerId))
+      .limit(1);
+    if (existingBuyer) {
+      res.status(200).json({ authenticated: true });
+      return;
+    }
+  }
+
+  const sessionId = randomUUID();
+  const [buyer] = await db
+    .insert(buyersTable)
+    .values({
+      name: "Comprador GetSupply",
+      email: `buyer-${sessionId}@session.getsupply.local`,
+    })
+    .returning({ id: buyersTable.id });
+
+  res.cookie(buyerSessionCookie, String(buyer.id), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    signed: true,
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+  res.status(201).json({ authenticated: true });
+});
+
+router.get("/rfqs", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
+  const rows = await selectRfq(buyerId);
   res.json(ListRfqsResponse.parse(rows.map(mapRfq)));
 });
 
 router.post("/rfqs", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
   const body = CreateRfqBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.message });
@@ -128,16 +187,6 @@ router.post("/rfqs", async (req, res): Promise<void> => {
   const quantity = positiveInteger(body.data.quantity);
   if (!quantity || !validDate(body.data.deadline)) {
     res.status(400).json({ error: "Quantidade ou prazo inválido." });
-    return;
-  }
-
-  const [buyer] = await db
-    .select({ id: buyersTable.id })
-    .from(buyersTable)
-    .orderBy(asc(buyersTable.id))
-    .limit(1);
-  if (!buyer) {
-    res.status(400).json({ error: "Nenhum comprador cadastrado." });
     return;
   }
 
@@ -156,7 +205,7 @@ router.post("/rfqs", async (req, res): Promise<void> => {
   const [rfq] = await db
     .insert(rfqsTable)
     .values({
-      buyerId: buyer.id,
+      buyerId,
       categoryId: category.id,
       title: body.data.title,
       technicalSpecification: body.data.specification,
@@ -170,6 +219,8 @@ router.post("/rfqs", async (req, res): Promise<void> => {
 });
 
 router.get("/rfqs/:id", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
   const params = GetRfqParams.safeParse(req.params);
   const id = params.success ? numericId(params.data.id, "rfq") : null;
   if (!id) {
@@ -177,7 +228,7 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [row] = await selectRfq(id);
+  const [row] = await selectRfq(buyerId, id);
   if (!row) {
     res.status(404).json({ error: "RFQ não encontrado." });
     return;
@@ -186,10 +237,17 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
   const params = ListProposalsParams.safeParse(req.params);
   const rfqId = params.success ? numericId(params.data.rfqId, "rfq") : null;
   if (!rfqId) {
     res.status(400).json({ error: "RFQ inválido." });
+    return;
+  }
+  const [ownedRfq] = await selectRfq(buyerId, rfqId);
+  if (!ownedRfq) {
+    res.status(404).json({ error: "RFQ não encontrado." });
     return;
   }
   const rows = await db
@@ -201,6 +259,8 @@ router.get("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
 });
 
 router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
   const params = CreateProposalParams.safeParse(req.params);
   const body = CreateProposalBody.safeParse(req.body);
   const rfqId = params.success ? numericId(params.data.rfqId, "rfq") : null;
@@ -210,7 +270,7 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
     return;
   }
 
-  const [rfq] = await db.select().from(rfqsTable).where(eq(rfqsTable.id, rfqId));
+  const [rfq] = await selectRfq(buyerId, rfqId);
   if (!rfq) {
     res.status(404).json({ error: "RFQ não encontrado." });
     return;
@@ -239,6 +299,8 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
 });
 
 router.get("/proposals/:proposalId/evaluations", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
   const params = ListEvaluationsParams.safeParse(req.params);
   const proposalId = params.success
     ? numericId(params.data.proposalId, "proposal")
@@ -248,13 +310,22 @@ router.get("/proposals/:proposalId/evaluations", async (req, res): Promise<void>
     return;
   }
   const rows = await db
-    .select()
+    .select({ evaluation: evaluationsTable })
     .from(evaluationsTable)
-    .where(eq(evaluationsTable.proposalId, proposalId));
-  res.json(ListEvaluationsResponse.parse(rows.map(mapEvaluation)));
+    .innerJoin(proposalsTable, eq(evaluationsTable.proposalId, proposalsTable.id))
+    .innerJoin(rfqsTable, eq(proposalsTable.rfqId, rfqsTable.id))
+    .where(
+      and(
+        eq(evaluationsTable.proposalId, proposalId),
+        eq(rfqsTable.buyerId, buyerId),
+      ),
+    );
+  res.json(ListEvaluationsResponse.parse(rows.map(({ evaluation }) => mapEvaluation(evaluation))));
 });
 
 router.post("/proposals/:proposalId/evaluations", async (req, res): Promise<void> => {
+  const buyerId = requireBuyer(req, res);
+  if (!buyerId) return;
   const params = CreateEvaluationParams.safeParse(req.params);
   const body = CreateEvaluationBody.safeParse(req.body);
   const proposalId = params.success
@@ -272,7 +343,13 @@ router.post("/proposals/:proposalId/evaluations", async (req, res): Promise<void
   const [proposal] = await db
     .select({ id: proposalsTable.id })
     .from(proposalsTable)
-    .where(eq(proposalsTable.id, proposalId));
+    .innerJoin(rfqsTable, eq(proposalsTable.rfqId, rfqsTable.id))
+    .where(
+      and(
+        eq(proposalsTable.id, proposalId),
+        eq(rfqsTable.buyerId, buyerId),
+      ),
+    );
   if (!proposal) {
     res.status(404).json({ error: "Proposta não encontrada." });
     return;

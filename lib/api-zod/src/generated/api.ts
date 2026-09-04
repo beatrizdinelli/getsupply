@@ -18,6 +18,14 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Start a buyer session
+ */
+export const CreateBuyerSessionResponse = zod.object({
+  "authenticated": zod.boolean()
+})
+
+
+/**
  * @summary List RFQs
  */
 export const ListRfqsResponseItem = zod.object({
