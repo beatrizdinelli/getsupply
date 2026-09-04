@@ -1,10 +1,12 @@
 import { createInsertSchema } from "drizzle-zod";
 import {
+  boolean,
   date,
   integer,
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -37,6 +39,32 @@ export const categoriesTable = pgTable("categoria", {
   id: serial("id").primaryKey(),
   name: varchar("nome", { length: 80 }).notNull(),
 });
+
+export const suppliersTable = pgTable("fornecedor", {
+  id: serial("id").primaryKey(),
+  companyName: varchar("nome_empresa", { length: 160 }).notNull(),
+  cnpj: varchar("cnpj", { length: 20 }).notNull().unique(),
+  cnpjVerified: boolean("cnpj_verificado").notNull().default(false),
+  region: varchar("regiao", { length: 120 }).notNull(),
+  productionCapacity: text("capacidade_produtiva"),
+  standardMoq: integer("moq_padrao"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const supplierCategoriesTable = pgTable(
+  "fornecedor_categoria",
+  {
+    supplierId: integer("fornecedor_id")
+      .notNull()
+      .references(() => suppliersTable.id),
+    categoryId: integer("categoria_id")
+      .notNull()
+      .references(() => categoriesTable.id),
+  },
+  (table) => [
+    primaryKey({ columns: [table.supplierId, table.categoryId] }),
+  ],
+);
 
 export const rfqsTable = pgTable("rfq", {
   id: serial("id").primaryKey(),
@@ -91,6 +119,13 @@ export const insertBuyerSchema = createInsertSchema(buyersTable).omit({
 export const insertCategorySchema = createInsertSchema(categoriesTable).omit({
   id: true,
 });
+export const insertSupplierSchema = createInsertSchema(suppliersTable).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertSupplierCategorySchema = createInsertSchema(
+  supplierCategoriesTable,
+);
 export const insertRfqSchema = createInsertSchema(rfqsTable).omit({
   id: true,
   createdAt: true,
@@ -106,11 +141,17 @@ export const insertEvaluationSchema = createInsertSchema(evaluationsTable).omit(
 
 export type Buyer = typeof buyersTable.$inferSelect;
 export type Category = typeof categoriesTable.$inferSelect;
+export type Supplier = typeof suppliersTable.$inferSelect;
+export type SupplierCategory = typeof supplierCategoriesTable.$inferSelect;
 export type Rfq = typeof rfqsTable.$inferSelect;
 export type Proposal = typeof proposalsTable.$inferSelect;
 export type Evaluation = typeof evaluationsTable.$inferSelect;
 export type InsertBuyer = z.infer<typeof insertBuyerSchema>;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type InsertSupplierCategory = z.infer<
+  typeof insertSupplierCategorySchema
+>;
 export type InsertRfq = z.infer<typeof insertRfqSchema>;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;
 export type InsertEvaluation = z.infer<typeof insertEvaluationSchema>;

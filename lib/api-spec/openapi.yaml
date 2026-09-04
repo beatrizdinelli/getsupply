@@ -18,6 +18,8 @@ tags:
     description: Proposal evaluation operations
   - name: sessions
     description: Session operations
+  - name: chat
+    description: AI-assisted supplier search
 paths:
   /healthz:
     get:
@@ -219,6 +221,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /chat/fornecedor:
+    post:
+      operationId: chatSupplier
+      tags: [chat]
+      summary: Search verified suppliers with the GetSupply assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierChatInput"
+      responses:
+        "200":
+          description: Assistant reply and verified supplier suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierChatResponse"
+        "400":
+          description: Invalid chat message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Buyer session required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: AI assistant unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   parameters:
     Id:
@@ -414,4 +452,69 @@ components:
           type: string
       required:
         - score
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+        - role
+        - content
+    SupplierSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        region:
+          type: string
+        standardMoq:
+          type: number
+          minimum: 0
+        category:
+          type: string
+        verified:
+          type: boolean
+          const: true
+      required:
+        - id
+        - name
+        - region
+        - standardMoq
+        - category
+        - verified
+    SupplierChatInput:
+      type: object
+      properties:
+        history:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+        - history
+        - message
+    SupplierChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        suppliers:
+          type: array
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/SupplierSuggestion"
+      required:
+        - message
+        - suppliers
 

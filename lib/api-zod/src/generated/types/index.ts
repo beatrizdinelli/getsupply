@@ -7,6 +7,8 @@
  */
 
 export * from './buyerSession';
+export * from './chatMessage';
+export * from './chatMessageRole';
 export * from './error';
 export * from './evaluation';
 export * from './evaluationInput';
@@ -17,3 +19,6 @@ export * from './proposalStatus';
 export * from './rfq';
 export * from './rfqInput';
 export * from './rfqStatus';
+export * from './supplierChatInput';
+export * from './supplierChatResponse';
+export * from './supplierSuggestion';

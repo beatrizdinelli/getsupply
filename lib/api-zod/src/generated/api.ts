@@ -203,3 +203,43 @@ export const CreateEvaluationResponse = zod.object({
   "comment": zod.string(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary Search verified suppliers with the GetSupply assistant
+ */
+export const chatSupplierBodyHistoryItemContentMax = 2000;
+
+export const chatSupplierBodyHistoryMax = 20;
+
+export const chatSupplierBodyMessageMax = 2000;
+
+
+
+export const ChatSupplierBody = zod.object({
+  "history": zod.array(zod.object({
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string().min(1).max(chatSupplierBodyHistoryItemContentMax)
+})).max(chatSupplierBodyHistoryMax),
+  "message": zod.string().min(1).max(chatSupplierBodyMessageMax)
+})
+
+export const chatSupplierResponseSuppliersItemStandardMoqMin = 0;
+
+export const chatSupplierResponseSuppliersMax = 3;
+
+
+
+export const ChatSupplierResponse = zod.object({
+  "message": zod.string(),
+  "suppliers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "region": zod.string(),
+  "standardMoq": zod.number().min(chatSupplierResponseSuppliersItemStandardMoqMin),
+  "category": zod.string(),
+  "verified": zod.literal(true)
+})).max(chatSupplierResponseSuppliersMax)
+})
+
+
