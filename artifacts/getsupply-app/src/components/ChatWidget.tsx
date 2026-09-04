@@ -16,7 +16,10 @@ import { Input } from "@workspace/getsupply-design-system/components/ui/input";
 import { Badge } from "@workspace/getsupply-design-system/components/ui/badge";
 import { Skeleton } from "@workspace/getsupply-design-system/components/ui/skeleton";
 import { ScrollArea } from "@workspace/getsupply-design-system/components/ui/scroll-area";
-import { chatSupplier } from "@workspace/api-client-react";
+import {
+  chatSupplier,
+  createBuyerSession,
+} from "@workspace/api-client-react";
 import type { SupplierSuggestion } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
@@ -201,10 +204,27 @@ export function ChatWidget() {
     setLoading(true);
 
     try {
-      const response = await chatSupplier({
+      const request = {
         history,
         message: text,
-      });
+      };
+      let response;
+
+      try {
+        response = await chatSupplier(request);
+      } catch (error) {
+        const status =
+          typeof error === "object" &&
+          error !== null &&
+          "status" in error
+            ? Number(error.status)
+            : null;
+
+        if (status !== 401) throw error;
+
+        await createBuyerSession();
+        response = await chatSupplier(request);
+      }
 
       const assistantMsg: ChatMsg = {
         id: `a-${Date.now()}`,
