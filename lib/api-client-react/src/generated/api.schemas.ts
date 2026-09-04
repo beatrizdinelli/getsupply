@@ -109,3 +109,47 @@ export interface EvaluationInput {
   score: number;
   comment?: string;
 }
+
+export type ChatMessageRole = typeof ChatMessageRole[keyof typeof ChatMessageRole];
+
+
+export const ChatMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  content: string;
+}
+
+export interface SupplierSuggestion {
+  id: string;
+  name: string;
+  region: string;
+  /** @minimum 0 */
+  standardMoq: number;
+  category: string;
+  verified: true;
+}
+
+export interface SupplierChatInput {
+  /** @maxItems 20 */
+  history: ChatMessage[];
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  message: string;
+}
+
+export interface SupplierChatResponse {
+  message: string;
+  /** @maxItems 3 */
+  suppliers: SupplierSuggestion[];
+}
+

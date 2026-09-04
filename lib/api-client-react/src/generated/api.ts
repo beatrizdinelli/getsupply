@@ -28,7 +28,9 @@ import type {
   Proposal,
   ProposalInput,
   Rfq,
-  RfqInput
+  RfqInput,
+  SupplierChatInput,
+  SupplierChatResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -729,3 +731,75 @@ export const useCreateEvaluation = <TError = ErrorType<Error>,
       > => {
       return useMutation(getCreateEvaluationMutationOptions(options));
     }
+
+export const getChatSupplierUrl = () => {
+
+
+
+
+  return `/api/chat/fornecedor`
+}
+
+/**
+ * @summary Search verified suppliers with the GetSupply assistant
+ */
+export const chatSupplier = async (supplierChatInput: SupplierChatInput, options?: Parameters<typeof customFetch>[1]): Promise<SupplierChatResponse> => {
+
+  return customFetch<SupplierChatResponse>(getChatSupplierUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(supplierChatInput)
+  }
+);}
+
+
+
+
+
+export const getChatSupplierMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chatSupplier>>, TError,{data: BodyType<SupplierChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof chatSupplier>>, TError,{data: BodyType<SupplierChatInput>}, TContext> => {
+
+const mutationKey = ['chatSupplier'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof chatSupplier>>, {data: BodyType<SupplierChatInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  chatSupplier(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChatSupplierMutationResult = NonNullable<Awaited<ReturnType<typeof chatSupplier>>>
+    export type ChatSupplierMutationBody = BodyType<SupplierChatInput>
+    export type ChatSupplierMutationError = ErrorType<Error>
+
+    /**
+ * @summary Search verified suppliers with the GetSupply assistant
+ */
+export const useChatSupplier = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chatSupplier>>, TError,{data: BodyType<SupplierChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof chatSupplier>>,
+        TError,
+        {data: BodyType<SupplierChatInput>},
+        TContext
+      > => {
+      return useMutation(getChatSupplierMutationOptions(options));
+    }
+

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, Route, Switch, useLocation, useParams } from "wouter";
+import { ChatWidget } from "./components/ChatWidget";
 import {
   ArrowRight,
   Check,
@@ -227,7 +228,29 @@ function Login() {
 }
 
 function App() {
-  return <Switch><Route path="/login" component={Login} /><Route path="/rfqs/new" component={NewRfq} /><Route path="/rfqs/:id" component={RfqDetail} /><Route path="/suppliers/:id" component={SupplierProfile} /><Route path="/suppliers" component={Suppliers} /><Route path="/supplier/apply" component={Apply} /><Route path="/" component={Home} /><Route><Shell><Card><CardContent className="p-10 text-center"><X className="mx-auto" /><h1 className="mt-3 font-serif text-3xl">Página não encontrada</h1><Link href="/" className="mt-5 inline-flex"><Button>Voltar ao início</Button></Link></CardContent></Card></Shell></Route></Switch>;
+  return <>
+    <Switch>
+      <Route path="/login" component={Login} />
+      <Route path="/rfqs/new" component={NewRfq} />
+      <Route path="/rfqs/:id" component={RfqDetail} />
+      <Route path="/suppliers/:id" component={SupplierProfile} />
+      <Route path="/suppliers" component={Suppliers} />
+      <Route path="/supplier/apply" component={Apply} />
+      <Route path="/" component={Home} />
+      <Route>
+        <Shell>
+          <Card>
+            <CardContent className="p-10 text-center">
+              <X className="mx-auto" />
+              <h1 className="mt-3 font-serif text-3xl">Página não encontrada</h1>
+              <Link href="/" className="mt-5 inline-flex"><Button>Voltar ao início</Button></Link>
+            </CardContent>
+          </Card>
+        </Shell>
+      </Route>
+    </Switch>
+    <ChatWidget />
+  </>;
 }
 
 export default App;
