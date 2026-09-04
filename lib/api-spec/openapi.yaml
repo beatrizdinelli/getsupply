@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: rfqs
+    description: Request for quotation operations
+  - name: proposals
+    description: Supplier proposal operations
+  - name: evaluations
+    description: Proposal evaluation operations
 paths:
   /healthz:
     get:
@@ -24,7 +30,201 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /rfqs:
+    get:
+      operationId: listRfqs
+      tags: [rfqs]
+      summary: List RFQs
+      responses:
+        "200":
+          description: RFQs ordered from newest to oldest
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rfq"
+    post:
+      operationId: createRfq
+      tags: [rfqs]
+      summary: Create an RFQ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RfqInput"
+      responses:
+        "201":
+          description: Created RFQ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rfq"
+        "400":
+          description: Invalid RFQ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /rfqs/{id}:
+    get:
+      operationId: getRfq
+      tags: [rfqs]
+      summary: Get an RFQ
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: RFQ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rfq"
+        "400":
+          description: Invalid RFQ id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: RFQ not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /rfqs/{rfqId}/proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List proposals for an RFQ
+      parameters:
+        - $ref: "#/components/parameters/RfqId"
+      responses:
+        "200":
+          description: Proposals ordered from newest to oldest
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Proposal"
+        "400":
+          description: Invalid RFQ id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createProposal
+      tags: [proposals]
+      summary: Create a proposal for an RFQ
+      parameters:
+        - $ref: "#/components/parameters/RfqId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalInput"
+      responses:
+        "201":
+          description: Created proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "400":
+          description: Invalid proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: RFQ not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /proposals/{proposalId}/evaluations:
+    get:
+      operationId: listEvaluations
+      tags: [evaluations]
+      summary: List evaluations for a proposal
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      responses:
+        "200":
+          description: Evaluations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Evaluation"
+        "400":
+          description: Invalid proposal id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: createEvaluation
+      tags: [evaluations]
+      summary: Evaluate a proposal
+      parameters:
+        - $ref: "#/components/parameters/ProposalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluationInput"
+      responses:
+        "201":
+          description: Created evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evaluation"
+        "400":
+          description: Invalid evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Proposal not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Proposal already evaluated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    RfqId:
+      name: rfqId
+      in: path
+      required: true
+      schema:
+        type: string
+    ProposalId:
+      name: proposalId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +233,164 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    Rfq:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        specification:
+          type: string
+        quantity:
+          type: string
+        deadline:
+          type: string
+        region:
+          type: string
+        createdAt:
+          type: string
+        status:
+          type: string
+          enum: [waiting, received, delayed, closed]
+        supplierIds:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - title
+        - category
+        - specification
+        - quantity
+        - deadline
+        - region
+        - createdAt
+        - status
+        - supplierIds
+    RfqInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+        specification:
+          type: string
+          minLength: 1
+        quantity:
+          type: string
+          minLength: 1
+        deadline:
+          type: string
+          minLength: 1
+        region:
+          type: string
+          minLength: 1
+      required:
+        - title
+        - category
+        - specification
+        - quantity
+        - deadline
+        - region
+    Proposal:
+      type: object
+      properties:
+        id:
+          type: string
+        rfqId:
+          type: string
+        supplierId:
+          type: string
+        supplierName:
+          type: string
+        price:
+          type: number
+        leadTime:
+          type: string
+        moq:
+          type: string
+        note:
+          type: string
+        status:
+          type: string
+          enum: [sent, accepted, rejected]
+      required:
+        - id
+        - rfqId
+        - supplierId
+        - supplierName
+        - price
+        - leadTime
+        - moq
+        - note
+        - status
+    ProposalInput:
+      type: object
+      properties:
+        supplierId:
+          type: string
+        supplierName:
+          type: string
+          minLength: 1
+        price:
+          type: number
+          minimum: 0
+        leadTime:
+          type: string
+          minLength: 1
+        moq:
+          type: string
+          minLength: 1
+        note:
+          type: string
+      required:
+        - supplierName
+        - price
+        - leadTime
+        - moq
+    Evaluation:
+      type: object
+      properties:
+        id:
+          type: string
+        proposalId:
+          type: string
+        score:
+          type: number
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - proposalId
+        - score
+        - comment
+        - createdAt
+    EvaluationInput:
+      type: object
+      properties:
+        score:
+          type: number
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+      required:
+        - score
 
