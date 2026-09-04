@@ -309,6 +309,21 @@ router.get("/proposals/:proposalId/evaluations", async (req, res): Promise<void>
     res.status(400).json({ error: "Proposta inválida." });
     return;
   }
+  const [ownedProposal] = await db
+    .select({ id: proposalsTable.id })
+    .from(proposalsTable)
+    .innerJoin(rfqsTable, eq(proposalsTable.rfqId, rfqsTable.id))
+    .where(
+      and(
+        eq(proposalsTable.id, proposalId),
+        eq(rfqsTable.buyerId, buyerId),
+      ),
+    )
+    .limit(1);
+  if (!ownedProposal) {
+    res.status(404).json({ error: "Proposta não encontrada." });
+    return;
+  }
   const rows = await db
     .select({ evaluation: evaluationsTable })
     .from(evaluationsTable)
