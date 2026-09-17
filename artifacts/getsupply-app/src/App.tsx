@@ -1,6 +1,24 @@
 // @ts-nocheck
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, Route, Switch, useLocation, useParams } from "wouter";
+import {
+  Link,
+  Redirect,
+  Route,
+  Router as WouterRouter,
+  Switch,
+  useLocation,
+  useParams,
+} from "wouter";
+import {
+  ClerkProvider,
+  Show,
+  SignIn,
+  SignUp,
+  useClerk,
+} from "@clerk/react";
+import { publishableKeyFromHost } from "@clerk/react/internal";
+import { shadcn } from "@clerk/themes";
+import { ptBR } from "@clerk/localizations";
 import { ChatWidget } from "./components/ChatWidget";
 import {
   ArrowRight,
@@ -35,13 +53,95 @@ import { StatusBadge } from "@workspace/getsupply-design-system/components/ui/st
 import {
   createEvaluation,
   createProposal,
-  createBuyerSession,
   createRfq,
   getRfq,
   listEvaluations,
   listProposals,
 } from "@workspace/api-client-react";
 import type { Evaluation } from "@workspace/api-client-react";
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
+
+const clerkAppearance = {
+  theme: shadcn,
+  cssLayerName: "clerk",
+  options: {
+    logoPlacement: "inside" as const,
+    logoLinkUrl: basePath || "/",
+    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    socialButtonsPlacement: "bottom" as const,
+  },
+  variables: {
+    colorPrimary: "hsl(var(--primary))",
+    colorForeground: "hsl(var(--foreground))",
+    colorMutedForeground: "hsl(var(--muted-foreground))",
+    colorDanger: "hsl(var(--destructive))",
+    colorBackground: "hsl(var(--card))",
+    colorInput: "hsl(var(--background))",
+    colorInputForeground: "hsl(var(--foreground))",
+    colorNeutral: "hsl(var(--border))",
+    fontFamily: "var(--font-sans)",
+    borderRadius: "var(--radius)",
+  },
+  elements: {
+    rootBox: "w-full flex justify-center",
+    cardBox: "bg-card rounded-2xl w-[440px] max-w-full overflow-hidden border shadow-sm",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    headerTitle: "text-foreground font-serif",
+    headerSubtitle: "text-muted-foreground",
+    socialButtonsBlockButtonText: "text-foreground font-medium",
+    formFieldLabel: "text-foreground",
+    footerActionLink: "text-primary font-semibold",
+    footerActionText: "text-muted-foreground",
+    dividerText: "text-muted-foreground",
+    identityPreviewEditButton: "text-primary",
+    formFieldSuccessText: "text-chart-4",
+    alertText: "text-destructive",
+    logoBox: "mb-3",
+    logoImage: "h-10",
+    socialButtonsBlockButton: "border-input bg-background text-foreground",
+    formButtonPrimary: "bg-primary text-primary-foreground",
+    formFieldInput: "border-input bg-background text-foreground",
+    footerAction: "bg-transparent",
+    dividerLine: "bg-border",
+    alert: "border-destructive/30 bg-destructive/10",
+    otpCodeFieldInput: "border-input text-foreground",
+    formFieldRow: "text-foreground",
+    main: "gap-5",
+  },
+};
+
+const clerkLocalization = {
+  ...ptBR,
+  signIn: {
+    ...ptBR.signIn,
+    start: {
+      ...ptBR.signIn?.start,
+      title: "Bem-vindo de volta",
+      subtitle: "Entre para acessar suas cotações",
+    },
+  },
+  signUp: {
+    ...ptBR.signUp,
+    start: {
+      ...ptBR.signUp?.start,
+      title: "Crie sua conta",
+      subtitle: "Comece a encontrar fornecedores verificados",
+    },
+  },
+};
 
 type Supplier = {
   id: string;
@@ -150,10 +250,26 @@ function Logo() {
   return <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight"><span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Package className="h-4 w-4" /></span>GetSupply</Link>;
 }
 
+function AuthControls({ mobile = false }: { mobile?: boolean }) {
+  const { signOut } = useClerk();
+  return <>
+    <Show when="signed-out">
+      <Link href="/sign-in" className={mobile ? "" : "text-sm text-muted-foreground"} aria-label={mobile ? "Entrar" : undefined}>
+        {mobile ? <UserCircle className="h-5 w-5 text-primary" /> : "Entrar"}
+      </Link>
+    </Show>
+    <Show when="signed-in">
+      <button type="button" onClick={() => signOut({ redirectUrl: basePath || "/" })} className={mobile ? "" : "text-sm text-muted-foreground hover:text-foreground"} aria-label={mobile ? "Sair" : undefined}>
+        {mobile ? <UserCircle className="h-5 w-5 text-primary" /> : "Sair"}
+      </button>
+    </Show>
+  </>;
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [loc] = useLocation();
-  return <div className="min-h-screen bg-background text-foreground"><header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur"><div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3"><Logo /><button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Abrir menu"><Menu className="h-5 w-5" /></button><nav className="hidden items-center gap-1 md:flex"><Link href="/" className={`rounded-full px-4 py-2 text-sm ${loc === "/" ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>Início</Link><Link href="/suppliers" className={`rounded-full px-4 py-2 text-sm ${loc.startsWith("/suppliers") ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>Fornecedores</Link></nav><Link href="/login" className="hidden text-sm text-muted-foreground md:block">Entrar</Link></div>{open && <nav className="border-t px-4 py-2 md:hidden"><Link href="/" className="block border-b py-3 text-sm" onClick={() => setOpen(false)}>Início</Link><Link href="/suppliers" className="block border-b py-3 text-sm" onClick={() => setOpen(false)}>Fornecedores</Link></nav>}</header><main className="mx-auto max-w-6xl px-4 py-8">{children}</main></div>;
+  return <div className="min-h-screen bg-background text-foreground"><header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur"><div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3"><Logo /><button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Abrir menu"><Menu className="h-5 w-5" /></button><nav className="hidden items-center gap-1 md:flex"><Link href="/" className={`rounded-full px-4 py-2 text-sm ${loc === "/" ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>Início</Link><Link href="/suppliers" className={`rounded-full px-4 py-2 text-sm ${loc.startsWith("/suppliers") ? "bg-secondary font-medium" : "text-muted-foreground hover:text-foreground"}`}>Fornecedores</Link></nav><span className="hidden md:block"><AuthControls /></span></div>{open && <nav className="border-t px-4 py-2 md:hidden"><Link href="/" className="block border-b py-3 text-sm" onClick={() => setOpen(false)}>Início</Link><Link href="/suppliers" className="block border-b py-3 text-sm" onClick={() => setOpen(false)}>Fornecedores</Link></nav>}</header><main className="mx-auto max-w-6xl px-4 py-8">{children}</main></div>;
 }
 
 function Home() {
@@ -214,31 +330,40 @@ function Apply() {
   return <Shell><div className="mx-auto max-w-2xl"><p className="text-sm font-medium text-primary">Para fornecedores</p><h1 className="mt-2 font-serif text-4xl">Faça parte da nossa prateleira.</h1><p className="mt-3 text-muted-foreground">Conte sobre sua operação. Procuramos parceiros cuidadosos, transparentes e bons no que fazem.</p><Card className="mt-8"><CardContent className="grid gap-5 p-6 sm:grid-cols-2">{<Field label="Empresa" name="company" value={form.company} onChange={update} />}<Field label="CNPJ" name="cnpj" value={form.cnpj} onChange={update} /><Field label="Categorias" name="categories" placeholder="Caixas, rótulos..." value={form.categories} onChange={update} /><Field label="Capacidade mensal" name="capacity" placeholder="Ex.: 50 mil unidades" value={form.capacity} onChange={update} /><Field label="Pedido mínimo (MOQ)" name="moq" value={form.moq} onChange={update} /><Field label="Região" name="region" value={form.region} onChange={update} /><Button className="sm:col-span-2" size="lg" onClick={() => setDone(true)}>Enviar cadastro <ArrowRight /></Button></CardContent></Card></div></Shell>;
 }
 
-function Login() {
-  const [, setLoc] = useLocation();
-  const [submitting, setSubmitting] = useState(false);
-  const enterBuyer = async () => {
-    setSubmitting(true);
-    try {
-      await createBuyerSession();
-      setLoc("/");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  return <div className="min-h-screen bg-background px-4 py-10"><div className="mx-auto max-w-4xl"><Logo /><div className="grid items-center gap-10 py-16 md:grid-cols-2"><div><p className="text-sm font-medium text-primary">Um lugar para fazer acontecer</p><h1 className="mt-3 font-serif text-5xl">Bem-vindo à sua próxima boa parceria.</h1><p className="mt-4 text-muted-foreground">Escolha um perfil para explorar a experiência demonstrativa.</p></div><Card><CardHeader><CardTitle>Entrar como</CardTitle></CardHeader><CardContent className="space-y-3"><button disabled={submitting} onClick={enterBuyer} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary disabled:opacity-60"><span><b>Sou uma marca</b><span className="mt-1 block text-xs text-muted-foreground">{submitting ? "Entrando..." : "Encontrar fornecedores e criar RFQs"}</span></span><ArrowRight className="h-4 w-4 text-primary" /></button><button onClick={() => setLoc("/supplier/apply")} className="flex w-full items-center justify-between rounded-lg border p-4 text-left hover:bg-secondary"><span><b>Sou fornecedor</b><span className="mt-1 block text-xs text-muted-foreground">Ver meu perfil e oportunidades</span></span><ArrowRight className="h-4 w-4 text-primary" /></button></CardContent></Card></div></div></div>;
+function SignInPage() {
+  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></div>;
 }
 
-function App() {
+function SignUpPage() {
+  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></div>;
+}
+
+function ProtectedPage({ children }: { children: ReactNode }) {
+  return <>
+    <Show when="signed-in">{children}</Show>
+    <Show when="signed-out"><Redirect to="/sign-in" /></Show>
+  </>;
+}
+
+function HomeRedirect() {
+  return <>
+    <Show when="signed-in"><Redirect to="/suppliers" /></Show>
+    <Show when="signed-out"><Home /></Show>
+  </>;
+}
+
+function AppRoutes() {
   return <>
     <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/rfqs/new" component={NewRfq} />
-      <Route path="/rfqs/:id" component={RfqDetail} />
+      <Route path="/login">{() => <Redirect to="/sign-in" />}</Route>
+      <Route path="/sign-in/*?" component={SignInPage} />
+      <Route path="/sign-up/*?" component={SignUpPage} />
+      <Route path="/rfqs/new">{() => <ProtectedPage><NewRfq /></ProtectedPage>}</Route>
+      <Route path="/rfqs/:id">{() => <ProtectedPage><RfqDetail /></ProtectedPage>}</Route>
       <Route path="/suppliers/:id" component={SupplierProfile} />
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/supplier/apply" component={Apply} />
-      <Route path="/" component={Home} />
+      <Route path="/" component={HomeRedirect} />
       <Route>
         <Shell>
           <Card>
@@ -251,8 +376,26 @@ function App() {
         </Shell>
       </Route>
     </Switch>
-    <ChatWidget />
+    <Show when="signed-in"><ChatWidget /></Show>
   </>;
+}
+
+function ClerkProviderWithRoutes() {
+  const [, setLocation] = useLocation();
+  return <ClerkProvider
+    publishableKey={clerkPubKey}
+    proxyUrl={clerkProxyUrl}
+    appearance={clerkAppearance}
+    signInUrl={`${basePath}/sign-in`}
+    signUpUrl={`${basePath}/sign-up`}
+    localization={clerkLocalization}
+    routerPush={(to) => setLocation(stripBase(to))}
+    routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+  ><AppRoutes /></ClerkProvider>;
+}
+
+function App() {
+  return <WouterRouter base={basePath}><ClerkProviderWithRoutes /></WouterRouter>;
 }
 
 export default App;

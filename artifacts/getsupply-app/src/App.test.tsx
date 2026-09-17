@@ -1,7 +1,22 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import App from "./App";
+
+vi.mock("@clerk/react", () => ({
+  ClerkProvider: ({ children }: { children: ReactNode }) => children,
+  Show: ({
+    when,
+    children,
+  }: {
+    when: "signed-in" | "signed-out";
+    children: ReactNode;
+  }) => (when === "signed-in" ? children : null),
+  SignIn: () => null,
+  SignUp: () => null,
+  useClerk: () => ({ signOut: vi.fn() }),
+}));
 
 const acceptedProposal = {
   id: "proposal-accepted",
@@ -51,7 +66,6 @@ const { state, listEvaluations, createEvaluation } = vi.hoisted(() => {
 
 vi.mock("@workspace/api-client-react", () => ({
   chatSupplier: vi.fn(),
-  createBuyerSession: vi.fn(),
   createEvaluation,
   createProposal: vi.fn(),
   createRfq: vi.fn(),

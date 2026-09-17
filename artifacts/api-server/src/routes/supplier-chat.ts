@@ -12,19 +12,9 @@ import {
 } from "@workspace/api-zod";
 import type OpenAI from "openai";
 import { getOpenAiClient } from "../lib/openai";
+import { requireBuyer } from "../lib/require-buyer";
 
 const router: IRouter = Router();
-const buyerSessionCookie = "getsupply_buyer";
-
-function requireBuyer(req: Request, res: Response): number | null {
-  const value = req.signedCookies?.[buyerSessionCookie];
-  const buyerId = typeof value === "string" ? Number(value) : Number.NaN;
-  if (!Number.isInteger(buyerId) || buyerId <= 0) {
-    res.status(401).json({ error: "Entre como comprador para continuar." });
-    return null;
-  }
-  return buyerId;
-}
 
 type SearchArgs = {
   categoria: string;
@@ -143,7 +133,7 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 ];
 
 router.post("/chat/fornecedor", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
 
   const body = ChatSupplierBody.safeParse(req.body);

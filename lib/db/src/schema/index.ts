@@ -29,6 +29,7 @@ export const proposalStatusEnum = pgEnum("proposta_status", [
 
 export const buyersTable = pgTable("comprador", {
   id: serial("id").primaryKey(),
+  clerkUserId: varchar("clerk_user_id", { length: 80 }).unique(),
   name: varchar("nome", { length: 120 }).notNull(),
   email: varchar("email", { length: 160 }).notNull(),
   company: varchar("empresa", { length: 160 }),
