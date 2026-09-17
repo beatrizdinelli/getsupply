@@ -110,13 +110,30 @@ router.post(
     if (!accountId) {
       let account;
       try {
-        account = await stripe.accounts.create({
-          type: "express",
-          country: "BR",
-          business_type: "company",
-          capabilities: {
-            card_payments: { requested: true },
-            transfers: { requested: true },
+        account = await stripe.v2.core.accounts.create({
+          display_name: supplier.companyName,
+          dashboard: "express",
+          identity: {
+            country: "BR",
+            entity_type: "company",
+            business_details: {
+              registered_name: supplier.companyName,
+            },
+          },
+          configuration: {
+            recipient: {
+              capabilities: {
+                stripe_balance: {
+                  stripe_transfers: { requested: true },
+                },
+              },
+            },
+          },
+          defaults: {
+            responsibilities: {
+              fees_collector: "application",
+              losses_collector: "application",
+            },
           },
           metadata: { supplierId: String(supplier.id) },
         });
@@ -126,6 +143,15 @@ router.post(
           res.status(409).json({
             error:
               "Ative o Stripe Connect na conta da GetSupply antes de cadastrar recebimentos.",
+          });
+          return;
+        }
+        if (
+          message.includes("Connected accounts in BR cannot be created by platforms in US")
+        ) {
+          res.status(409).json({
+            error:
+              "A conta Stripe da GetSupply está nos Estados Unidos. Conecte uma conta Stripe brasileira para receber fornecedores do Brasil.",
           });
           return;
         }
@@ -139,11 +165,20 @@ router.post(
     }
 
     const baseUrl = publicBaseUrl(req);
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await stripe.v2.core.accountLinks.create({
       account: accountId,
-      refresh_url: `${baseUrl}/supplier/apply?stripe=refresh`,
-      return_url: `${baseUrl}/supplier/apply?stripe=return`,
-      type: "account_onboarding",
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          configurations: ["recipient"],
+          collection_options: {
+            fields: "eventually_due",
+            future_requirements: "include",
+          },
+          refresh_url: `${baseUrl}/supplier/apply?stripe=refresh`,
+          return_url: `${baseUrl}/supplier/apply?stripe=return`,
+        },
+      },
     });
     res.json({ url: accountLink.url });
   },
@@ -166,15 +201,21 @@ router.get("/suppliers/connect/status", async (req, res): Promise<void> => {
   }
 
   const stripe = await getUncachableStripeClient();
-  const account = await stripe.accounts.retrieve(supplier.stripeAccountId);
-  const connected = account.details_submitted && account.payouts_enabled;
+  const account = await stripe.v2.core.accounts.retrieve(
+    supplier.stripeAccountId,
+    { include: ["configuration.recipient", "requirements"] },
+  );
+  const balance = account.configuration?.recipient?.capabilities?.stripe_balance;
+  const connected =
+    balance?.stripe_transfers?.status === "active" &&
+    balance.payouts?.status === "active";
   await db
     .update(suppliersTable)
     .set({ stripeOnboardingComplete: connected })
     .where(eq(suppliersTable.id, supplier.id));
   res.json({
     connected,
-    detailsSubmitted: account.details_submitted,
+    detailsSubmitted: (account.requirements?.entries?.length ?? 0) === 0,
   });
 });
 
