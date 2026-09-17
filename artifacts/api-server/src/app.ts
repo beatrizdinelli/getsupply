@@ -10,6 +10,7 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { processStripeWebhook } from "./lib/stripe-webhooks";
 
 const app: Express = express();
 
@@ -34,6 +35,22 @@ app.use(
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors({ credentials: true, origin: true }));
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res): Promise<void> => {
+    const signature = req.headers["stripe-signature"];
+    const normalizedSignature = Array.isArray(signature)
+      ? signature[0]
+      : signature;
+    if (!normalizedSignature) {
+      res.status(400).json({ error: "Assinatura Stripe ausente." });
+      return;
+    }
+    await processStripeWebhook(req.body as Buffer, normalizedSignature);
+    res.status(200).json({ received: true });
+  },
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(

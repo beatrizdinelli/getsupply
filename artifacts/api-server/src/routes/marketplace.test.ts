@@ -9,14 +9,13 @@ import {
   pool,
   proposalsTable,
   rfqsTable,
+  suppliersTable,
 } from "@workspace/db";
 
 const seedCategories = ["Rótulos", "Potes", "Caixas", "Sacos"];
 
 let server: Server;
 let baseUrl: string;
-let cookie = "";
-let buyerBCookie = "";
 let buyerId: number | undefined;
 let buyerBId: number | undefined;
 let rfqId: number | undefined;
@@ -30,13 +29,10 @@ async function request(
   init: RequestInit = {},
 ): Promise<{ response: Response; body: unknown }> {
   const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
+  headers.set("x-test-clerk-user-id", "test-buyer-a");
   if (init.body) headers.set("content-type", "application/json");
 
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";", 1)[0] ?? "";
-
   return { response, body: await response.json() };
 }
 
@@ -45,13 +41,10 @@ async function requestAsBuyerB(
   init: RequestInit = {},
 ): Promise<{ response: Response; body: unknown }> {
   const headers = new Headers(init.headers);
-  if (buyerBCookie) headers.set("cookie", buyerBCookie);
+  headers.set("x-test-clerk-user-id", "test-buyer-b");
   if (init.body) headers.set("content-type", "application/json");
 
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) buyerBCookie = setCookie.split(";", 1)[0] ?? "";
-
   return { response, body: await response.json() };
 }
 
@@ -83,7 +76,7 @@ async function assertSeedDataAvailable(): Promise<void> {
 }
 
 before(async () => {
-  process.env.SESSION_SECRET ??= "marketplace-integration-test-secret";
+  process.env.NODE_ENV = "test";
   const { default: app } = await import("../app");
   server = app.listen(0, "127.0.0.1");
   await new Promise<void>((resolve, reject) => {
@@ -132,8 +125,7 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
   ).map(({ id }) => id);
 
   const session = await request("/sessions/buyer", { method: "POST" });
-  assert.equal(session.response.status, 201);
-  assert.ok(cookie);
+  assert.equal(session.response.status, 200);
   const buyersAfterSession = await db
     .select({ id: buyersTable.id })
     .from(buyersTable);
@@ -143,8 +135,7 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
   assert.ok(buyerId, "a sessão deve persistir um novo comprador");
 
   const buyerBSession = await requestAsBuyerB("/sessions/buyer", { method: "POST" });
-  assert.equal(buyerBSession.response.status, 201);
-  assert.ok(buyerBCookie);
+  assert.equal(buyerBSession.response.status, 200);
   const buyersAfterBothSessions = await db
     .select({ id: buyersTable.id })
     .from(buyersTable);
@@ -239,6 +230,9 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
   const createdProposal = await request(`/rfqs/${rfq.id}/proposals`, {
     method: "POST",
     body: JSON.stringify({
+      supplierId: `supplier-${(
+        await db.select({ id: suppliersTable.id }).from(suppliersTable).limit(1)
+      )[0]?.id}`,
       supplierName: "Fornecedor do teste de integração",
       price: 3.45,
       leadTime: "2030-12-10",
@@ -253,6 +247,7 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
   const hiddenProposalCreation = await requestAsBuyerB(`/rfqs/${rfq.id}/proposals`, {
     method: "POST",
     body: JSON.stringify({
+      supplierId: (createdProposal.body as { supplierId: string }).supplierId,
       supplierName: "Fornecedor indevido",
       price: 1,
       leadTime: "2030-12-10",

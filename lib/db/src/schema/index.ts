@@ -43,6 +43,11 @@ export const categoriesTable = pgTable("categoria", {
 
 export const suppliersTable = pgTable("fornecedor", {
   id: serial("id").primaryKey(),
+  clerkUserId: varchar("clerk_user_id", { length: 80 }).unique(),
+  stripeAccountId: varchar("stripe_account_id", { length: 80 }).unique(),
+  stripeOnboardingComplete: boolean("stripe_onboarding_complete")
+    .notNull()
+    .default(false),
   companyName: varchar("nome_empresa", { length: 160 }).notNull(),
   cnpj: varchar("cnpj", { length: 20 }).notNull().unique(),
   cnpjVerified: boolean("cnpj_verificado").notNull().default(false),
@@ -92,6 +97,7 @@ export const proposalsTable = pgTable("proposta", {
   rfqId: integer("rfq_id")
     .notNull()
     .references(() => rfqsTable.id),
+  supplierId: integer("fornecedor_id").references(() => suppliersTable.id),
   supplierName: varchar("fornecedor_nome", { length: 160 }).notNull(),
   price: numeric("preco", { precision: 10, scale: 2 }).notNull(),
   deliveryDeadline: date("prazo_entrega", { mode: "string" }).notNull(),
@@ -100,6 +106,11 @@ export const proposalsTable = pgTable("proposta", {
   status: proposalStatusEnum("status").notNull().default("enviada"),
   decisionDate: timestamp("data_decisao"),
   rejectionReason: text("motivo_recusa"),
+  stripePriceId: varchar("stripe_price_id", { length: 80 }),
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id", {
+    length: 100,
+  }).unique(),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 100 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
