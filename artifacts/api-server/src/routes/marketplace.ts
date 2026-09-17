@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter } from "express";
 import { and, desc, eq } from "drizzle-orm";
 import {
-  buyersTable,
   categoriesTable,
   db,
   evaluationsTable,
@@ -26,9 +24,9 @@ import {
   ListProposalsResponse,
   ListRfqsResponse,
 } from "@workspace/api-zod";
+import { requireBuyer } from "../lib/require-buyer";
 
 const router: IRouter = Router();
-const buyerSessionCookie = "getsupply_buyer";
 
 const rfqStatus = {
   aguardando_proposta: "waiting",
@@ -105,21 +103,6 @@ function mapEvaluation(row: typeof evaluationsTable.$inferSelect) {
   };
 }
 
-function sessionBuyerId(req: Request): number | null {
-  const value = req.signedCookies?.[buyerSessionCookie];
-  const id = typeof value === "string" ? Number(value) : Number.NaN;
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
-function requireBuyer(req: Request, res: Response): number | null {
-  const buyerId = sessionBuyerId(req);
-  if (!buyerId) {
-    res.status(401).json({ error: "Entre como comprador para continuar." });
-    return null;
-  }
-  return buyerId;
-}
-
 async function selectRfq(buyerId: number, id?: number) {
   const query = db
     .select({ rfq: rfqsTable, category: categoriesTable.name })
@@ -135,48 +118,20 @@ async function selectRfq(buyerId: number, id?: number) {
 }
 
 router.post("/sessions/buyer", async (req, res): Promise<void> => {
-  const existingBuyerId = sessionBuyerId(req);
-  if (existingBuyerId) {
-    const [existingBuyer] = await db
-      .select({ id: buyersTable.id })
-      .from(buyersTable)
-      .where(eq(buyersTable.id, existingBuyerId))
-      .limit(1);
-    if (existingBuyer) {
-      res.status(200).json({ authenticated: true });
-      return;
-    }
-  }
-
-  const sessionId = randomUUID();
-  const [buyer] = await db
-    .insert(buyersTable)
-    .values({
-      name: "Comprador GetSupply",
-      email: `buyer-${sessionId}@session.getsupply.local`,
-    })
-    .returning({ id: buyersTable.id });
-
-  res.cookie(buyerSessionCookie, String(buyer.id), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    signed: true,
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-  });
-  res.status(201).json({ authenticated: true });
+  const buyerId = await requireBuyer(req, res);
+  if (!buyerId) return;
+  res.status(200).json({ authenticated: true });
 });
 
 router.get("/rfqs", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const rows = await selectRfq(buyerId);
   res.json(ListRfqsResponse.parse(rows.map(mapRfq)));
 });
 
 router.post("/rfqs", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const body = CreateRfqBody.safeParse(req.body);
   if (!body.success) {
@@ -219,7 +174,7 @@ router.post("/rfqs", async (req, res): Promise<void> => {
 });
 
 router.get("/rfqs/:id", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const params = GetRfqParams.safeParse(req.params);
   const id = params.success ? numericId(params.data.id, "rfq") : null;
@@ -237,7 +192,7 @@ router.get("/rfqs/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const params = ListProposalsParams.safeParse(req.params);
   const rfqId = params.success ? numericId(params.data.rfqId, "rfq") : null;
@@ -259,7 +214,7 @@ router.get("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
 });
 
 router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const params = CreateProposalParams.safeParse(req.params);
   const body = CreateProposalBody.safeParse(req.body);
@@ -299,7 +254,7 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
 });
 
 router.get("/proposals/:proposalId/evaluations", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const params = ListEvaluationsParams.safeParse(req.params);
   const proposalId = params.success
@@ -339,7 +294,7 @@ router.get("/proposals/:proposalId/evaluations", async (req, res): Promise<void>
 });
 
 router.post("/proposals/:proposalId/evaluations", async (req, res): Promise<void> => {
-  const buyerId = requireBuyer(req, res);
+  const buyerId = await requireBuyer(req, res);
   if (!buyerId) return;
   const params = CreateEvaluationParams.safeParse(req.params);
   const body = CreateEvaluationBody.safeParse(req.body);

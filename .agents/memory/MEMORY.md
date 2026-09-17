@@ -1,0 +1,1 @@
+- [Identidade de compradores](buyer-identity.md) — Clerk autentica usuários; registros numéricos locais continuam sendo a identidade de domínio para dados do marketplace.

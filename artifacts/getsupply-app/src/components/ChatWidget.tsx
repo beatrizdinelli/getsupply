@@ -18,7 +18,6 @@ import { Skeleton } from "@workspace/getsupply-design-system/components/ui/skele
 import { ScrollArea } from "@workspace/getsupply-design-system/components/ui/scroll-area";
 import {
   chatSupplier,
-  createBuyerSession,
 } from "@workspace/api-client-react";
 import type { SupplierSuggestion } from "@workspace/api-client-react";
 
@@ -208,23 +207,7 @@ export function ChatWidget() {
         history,
         message: text,
       };
-      let response;
-
-      try {
-        response = await chatSupplier(request);
-      } catch (error) {
-        const status =
-          typeof error === "object" &&
-          error !== null &&
-          "status" in error
-            ? Number(error.status)
-            : null;
-
-        if (status !== 401) throw error;
-
-        await createBuyerSession();
-        response = await chatSupplier(request);
-      }
+      const response = await chatSupplier(request);
 
       const assistantMsg: ChatMsg = {
         id: `a-${Date.now()}`,
