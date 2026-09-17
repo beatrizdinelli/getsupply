@@ -20,6 +20,9 @@ import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { ptBR } from "@clerk/localizations";
 import { ChatWidget } from "./components/ChatWidget";
+import { PaymentSuccess } from "./components/PaymentSuccess";
+import { ProposalCheckoutWidget } from "./components/ProposalCheckoutWidget";
+import { SupplierRegistration } from "./components/SupplierRegistration";
 import {
   ArrowRight,
   Check,
@@ -360,9 +363,10 @@ function AppRoutes() {
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/rfqs/new">{() => <ProtectedPage><NewRfq /></ProtectedPage>}</Route>
       <Route path="/rfqs/:id">{() => <ProtectedPage><RfqDetail /></ProtectedPage>}</Route>
+      <Route path="/payments/success">{() => <ProtectedPage><Shell><PaymentSuccess /></Shell></ProtectedPage>}</Route>
       <Route path="/suppliers/:id" component={SupplierProfile} />
       <Route path="/suppliers" component={Suppliers} />
-      <Route path="/supplier/apply" component={Apply} />
+      <Route path="/supplier/apply">{() => <ProtectedPage><Shell><SupplierRegistration /></Shell></ProtectedPage>}</Route>
       <Route path="/" component={HomeRedirect} />
       <Route>
         <Shell>
@@ -376,7 +380,7 @@ function AppRoutes() {
         </Shell>
       </Route>
     </Switch>
-    <Show when="signed-in"><ChatWidget /></Show>
+    <Show when="signed-in"><ProposalCheckoutWidget /><ChatWidget /></Show>
   </>;
 }
 

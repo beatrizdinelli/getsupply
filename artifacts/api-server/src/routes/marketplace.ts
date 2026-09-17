@@ -6,6 +6,7 @@ import {
   evaluationsTable,
   proposalsTable,
   rfqsTable,
+  suppliersTable,
 } from "@workspace/db";
 import {
   CreateEvaluationBody,
@@ -83,7 +84,7 @@ function mapProposal(row: typeof proposalsTable.$inferSelect) {
   return {
     id: `proposal-${row.id}`,
     rfqId: `rfq-${row.rfqId}`,
-    supplierId: `supplier-${row.id}`,
+    supplierId: `supplier-${row.supplierId ?? row.id}`,
     supplierName: row.supplierName,
     price: Number(row.price),
     leadTime: row.deliveryDeadline,
@@ -220,7 +221,16 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
   const body = CreateProposalBody.safeParse(req.body);
   const rfqId = params.success ? numericId(params.data.rfqId, "rfq") : null;
   const moq = body.success ? positiveInteger(body.data.moq) : null;
-  if (!rfqId || !body.success || !moq || !validDate(body.data.leadTime)) {
+  const supplierId = body.success
+    ? positiveInteger(body.data.supplierId ?? "")
+    : null;
+  if (
+    !rfqId ||
+    !body.success ||
+    !supplierId ||
+    !moq ||
+    !validDate(body.data.leadTime)
+  ) {
     res.status(400).json({ error: "Dados da proposta inválidos." });
     return;
   }
@@ -230,13 +240,26 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
     res.status(404).json({ error: "RFQ não encontrado." });
     return;
   }
+  const [supplier] = await db
+    .select({
+      id: suppliersTable.id,
+      companyName: suppliersTable.companyName,
+    })
+    .from(suppliersTable)
+    .where(eq(suppliersTable.id, supplierId))
+    .limit(1);
+  if (!supplier) {
+    res.status(404).json({ error: "Fornecedor não encontrado." });
+    return;
+  }
 
   const proposal = await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(proposalsTable)
       .values({
         rfqId,
-        supplierName: body.data.supplierName,
+        supplierId: supplier.id,
+        supplierName: supplier.companyName,
         price: body.data.price.toFixed(2),
         deliveryDeadline: body.data.leadTime,
         proposedMoq: moq,

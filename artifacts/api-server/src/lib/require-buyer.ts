@@ -3,13 +3,24 @@ import type { Request, Response } from "express";
 import { buyersTable, db } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
+export function getClerkUserId(req: Request): string | null {
+  if (process.env.NODE_ENV === "test") {
+    const testUserId = req.headers["x-test-clerk-user-id"];
+    if (typeof testUserId === "string" && testUserId) return testUserId;
+  }
+  const auth = getAuth(req);
+  return (
+    (auth.sessionClaims?.userId as string | undefined) ??
+    auth.userId ??
+    null
+  );
+}
+
 export async function requireBuyer(
   req: Request,
   res: Response,
 ): Promise<number | null> {
-  const auth = getAuth(req);
-  const clerkUserId =
-    (auth.sessionClaims?.userId as string | undefined) ?? auth.userId;
+  const clerkUserId = getClerkUserId(req);
 
   if (!clerkUserId) {
     res.status(401).json({ error: "Entre como comprador para continuar." });
