@@ -1,0 +1,55 @@
+# Prompt para o Replit — Resumo comparativo de propostas com IA
+
+Cole o texto abaixo no Replit AI Agent.
+
+---
+
+Estou construindo o **GetSupply**, um marketplace B2B que conecta fundadores de marca a fornecedores de embalagem. Stack: TypeScript, React + Vite no front, PostgreSQL no back (Replit Database). O schema já existe — a tabela relevante é `proposta`:
+
+```sql
+CREATE TABLE proposta (
+    id                    SERIAL PRIMARY KEY,
+    rfq_id                INTEGER NOT NULL REFERENCES rfq(id),
+    fornecedor_nome       VARCHAR(160) NOT NULL,
+    preco                 NUMERIC(10,2) NOT NULL,
+    prazo_entrega         DATE NOT NULL,
+    moq_proposto          INTEGER NOT NULL,
+    condicoes_comerciais  TEXT,
+    status                proposta_status NOT NULL DEFAULT 'enviada', -- enviada | aceita | recusada
+    data_decisao          TIMESTAMP,
+    motivo_recusa         TEXT,
+    created_at            TIMESTAMP NOT NULL DEFAULT now()
+);
+```
+
+Quero adicionar uma feature: quando um RFQ recebe duas ou mais propostas com `status = 'enviada'`, mostrar um **resumo comparativo gerado por IA** acima da tabela de comparação de propostas, para ajudar o comprador a entender os trade-offs antes de decidir.
+
+## O que construir
+
+**1. Endpoint no backend** (`GET /api/rfq/:id/resumo-propostas`)
+- Busca todas as propostas do RFQ com `status = 'enviada'`.
+- Se houver menos de 2 propostas, retorna `null` (não faz sentido comparar uma proposta só).
+- Monta um payload estruturado (fornecedor, preço, prazo_entrega, moq_proposto, condicoes_comerciais de cada proposta) e envia para um modelo de linguagem (usar a Replit AI / integração de LLM disponível no ambiente) com este tipo de instrução:
+
+  > "Você é um assistente que resume propostas de fornecedores de embalagem para um comprador que nunca negociou com fábrica antes. Dado o JSON de propostas abaixo, escreva um resumo curto (3-4 frases, em português) destacando as diferenças relevantes: qual é mais barata, qual entrega mais rápido, qual tem menor MOQ, e qualquer trade-off entre elas. NÃO diga qual proposta escolher, NÃO use linguagem de recomendação ('eu escolheria', 'a melhor é') — apenas descreva os fatos e as diferenças de forma neutra. A decisão é sempre do comprador."
+
+- Cacheia o resultado (ex.: em uma coluna `resumo_ia` numa tabela auxiliar ou em memória por `rfq_id`) e só regenera quando uma nova proposta chega ou uma proposta muda de status — não gerar a cada carregamento de tela.
+- Se a chamada à IA falhar, retorna `null` silenciosamente (o front deve funcionar normalmente sem o resumo).
+
+**2. Componente no frontend**
+- Card de fundo `#F0E1CB` (bege claro, cor de contexto — não terracota, que é reservada para ação), texto em `#1F1B16` (ink), cantos arredondados 12–16px, posicionado imediatamente acima da tabela/cards de comparação de propostas na tela do RFQ.
+- Rótulo pequeno no topo do card, uppercase, caption: "Resumo gerado por IA" — precisa ficar claro que é conteúdo gerado, não uma nota humana.
+- Se o endpoint retornar `null` (menos de 2 propostas, ou falha), o card simplesmente não aparece — a tabela de propostas continua funcionando normalmente sem ele.
+- Segue a tipografia já definida: texto do resumo em Body (14–15px, peso 400).
+
+## Regras importantes
+
+- O resumo é **informativo, nunca decisório** — ele nunca deve dizer "escolha esta proposta" ou insinuar uma recomendação. Quem decide aceitar/recusar continua sendo o comprador, clicando no botão de ação normal da proposta (isso não muda).
+- Preço, prazo e MOQ continuam aparecendo em destaque (bold/semibold) na tabela de comparação — o resumo em texto é complementar, não substitui os dados brutos.
+- Não gerar resumo para propostas já `aceita` ou `recusada` — só faz sentido enquanto o comprador ainda está decidindo (`status = 'enviada'`).
+
+## Fora de escopo por agora
+
+- Não implementar matching automático de fornecedor (isso continua manual/curado pela operação).
+- Não usar IA para decidir ou sugerir aceitar/recusar propostas automaticamente.
+- Não modelar isso como nova entidade no banco — é um resumo derivado, não um dado permanente do domínio.

@@ -1,0 +1,64 @@
+# Prompt para o Replit — Chatbot de busca de fornecedor ideal
+
+Cole o texto abaixo no Replit AI Agent.
+
+---
+
+Estou construindo o **GetSupply**, um marketplace B2B que conecta fundadores de marca a fornecedores de embalagem verificados. Stack: TypeScript, React + Vite no front, PostgreSQL no back (Replit Database). O lado do comprador já está implementado (tabelas `comprador`, `categoria`, `rfq`, `proposta`, `avaliacao`).
+
+## Pré-requisito: o lado do fornecedor ainda não existe como entidade
+
+Hoje `proposta` só guarda `fornecedor_nome` como texto livre — não existe uma tabela de fornecedores pesquisável. Um chatbot que ajuda a "achar o fornecedor ideal" não funciona sem dados estruturados de fornecedor para consultar, então este prompt inclui criar essa base antes do chatbot:
+
+```sql
+CREATE TABLE fornecedor (
+    id                    SERIAL PRIMARY KEY,
+    nome_empresa          VARCHAR(160) NOT NULL,
+    cnpj                  VARCHAR(20) NOT NULL UNIQUE,
+    cnpj_verificado       BOOLEAN NOT NULL DEFAULT false,
+    regiao                VARCHAR(120) NOT NULL,
+    capacidade_produtiva  TEXT,
+    moq_padrao            INTEGER,
+    created_at            TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE fornecedor_categoria (
+    fornecedor_id INTEGER NOT NULL REFERENCES fornecedor(id),
+    categoria_id  INTEGER NOT NULL REFERENCES categoria(id),
+    PRIMARY KEY (fornecedor_id, categoria_id)
+);
+```
+
+Popule com 8-10 fornecedores fictícios cobrindo as 4 categorias já existentes (Rótulos, Potes, Caixas, Sacos), variando região e `cnpj_verificado` (nem todos `true` — isso importa para o guardrail abaixo). Pode reaproveitar os nomes de fornecedor já usados em `proposta.fornecedor_nome` para manter consistência.
+
+## O que construir
+
+**1. Chave de API (obrigatório antes do resto)**
+- Escolher um provedor de LLM (ex.: OpenAI ou Anthropic) e criar a chave na aba **Secrets** do Replit — nunca hardcoded no código nem commitado no repositório.
+- Nome sugerido da secret: `LLM_API_KEY`. Adicionar essa variável também no `.env.example` do projeto (sem o valor real), do mesmo jeito que `DATABASE_URL` já está documentado no README.
+- O backend deve falhar de forma clara e legível (não crashar a aplicação) se a secret não estiver configurada — mostrar no console algo como "LLM_API_KEY não configurada, chatbot desativado".
+
+**2. Endpoint de chat** (`POST /api/chat/fornecedor`)
+- Recebe o histórico da conversa (mensagens do comprador logado) e a mensagem nova.
+- Usa function calling / tool use do modelo para traduzir a conversa em uma consulta estruturada — o modelo decide quando tem informação suficiente (categoria, região desejada, quantidade aproximada) para chamar uma função tipo `buscar_fornecedores(categoria, regiao?, moq_max?)`, que roda uma query real em `fornecedor` + `fornecedor_categoria`, filtrando **sempre** por `cnpj_verificado = true`.
+- Se faltar informação (ex.: comprador não disse a categoria), o modelo deve perguntar antes de buscar — não adivinhar.
+- Resposta final ao comprador: até 3 fornecedores candidatos, com nome, região, MOQ padrão e um botão/link para "Ver perfil" ou "Criar RFQ com este fornecedor" — o chatbot **sugere candidatos para o comprador explorar**, ele não cria a RFQ nem fecha negócio sozinho.
+
+**3. Widget de chat no frontend**
+- Botão flutuante no canto inferior direito, ícone de chat, fundo terracota (`#C1502E`) — é uma ação, então usa a cor de CTA do design system.
+- Painel de chat: fundo branco, balões do comprador em areia (`#FAF5EA`), balões do assistente em bege claro (`#F0E1CB`), texto ink (`#1F1B16`), cantos arredondados 12–16px (raio padrão de card/modal do design system).
+- Título do painel: "Assistente GetSupply" com um rótulo caption abaixo, uppercase: "Sugestões geradas por IA — a decisão final é sua".
+- Cards de fornecedor sugerido dentro do chat seguem o mesmo padrão do card de fornecedor já usado no resto do app (thumbnail, tag de categoria, nome, MOQ e região visíveis).
+
+## Regras importantes
+
+- O chatbot **sugere, não decide**: ele nunca cria RFQ, nunca envia proposta, nunca fecha negócio sozinho — sempre termina em um botão que o comprador clica para agir.
+- Só sugerir fornecedor com `cnpj_verificado = true` — nunca contornar esse guardrail, mesmo que o comprador peça explicitamente por um fornecedor não verificado.
+- Se a busca não retornar nenhum fornecedor verificado na categoria/região pedida, o chatbot deve dizer isso claramente e sugerir abrir uma RFQ aberta (sem fornecedor pré-selecionado) em vez de inventar uma resposta.
+- Tratar a chave de API como segredo em todo o código gerado (variável de ambiente via `process.env.LLM_API_KEY`, nunca string literal).
+
+## Fora de escopo por agora
+
+- Não fazer o chatbot decidir automaticamente qual fornecedor "vencer" uma RFQ — isso continua sendo a curadoria manual + decisão do comprador já modelada em `proposta.status`.
+- Não usar o chatbot para negociar preço ou condições comerciais em nome do comprador.
+- Não expor dados de fornecedor não verificado (`cnpj_verificado = false`) nas respostas do chat, mesmo como "opção alternativa".

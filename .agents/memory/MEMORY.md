@@ -1,0 +1,2 @@
+- [Identidade de compradores](buyer-identity.md) — Clerk autentica usuários; registros numéricos locais continuam sendo a identidade de domínio para dados do marketplace.
+- [Pré-requisito do Stripe Connect](stripe-connect-prerequisite.md) — conectar a API Stripe não habilita Connect; a conta da plataforma precisa aderir ao Connect antes de criar contas Express.
