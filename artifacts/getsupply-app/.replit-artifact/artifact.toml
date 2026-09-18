@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "GetSupply"
+description = "A warm, curated sourcing marketplace for early-stage brands to create packaging quote requests, compare supplier proposals, and make confident purchasing decisions."
+version = "1.0.0"
+id = "artifacts/getsupply-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24474
+
+[services.development]
+run = "pnpm --filter @workspace/getsupply-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/getsupply-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/getsupply-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24474"
+BASE_PATH = "/"
