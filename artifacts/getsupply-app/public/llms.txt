@@ -1,0 +1,20 @@
+# GetSupply
+
+> Plataforma B2B para encontrar fornecedores de embalagens, criar pedidos de cotação (RFQ) e comparar propostas de preço, prazo e pedido mínimo (MOQ). Foco em marcas early-stage no Brasil.
+
+## Páginas principais
+
+- [Início](https://frail-madeup-cgi.replit.app/): apresentação do produto e como funciona.
+- [Fornecedores](https://frail-madeup-cgi.replit.app/suppliers): catálogo de fornecedores de embalagens com avaliação, região e MOQ.
+- [Roadmap](https://frail-madeup-cgi.replit.app/roadmap): próximas 5 features do produto, com score de priorização.
+
+## Como funciona
+
+1. O comprador cria um pedido de cotação com categoria, especificação, quantidade, prazo e região.
+2. Fornecedores verificados enviam propostas com preço, prazo e MOQ.
+3. O comprador compara as propostas e escolhe.
+
+## Observações
+
+- Idioma do conteúdo: português do Brasil.
+- Áreas de pedidos, propostas e mensagens exigem login e não são públicas.
