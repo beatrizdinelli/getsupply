@@ -11,10 +11,10 @@ import {
 } from "wouter";
 import {
   ClerkProvider,
-  Show,
+  Show as ClerkShow,
   SignIn,
   SignUp,
-  useClerk,
+  useClerk as useClerkReal,
 } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
@@ -65,10 +65,30 @@ import {
 import type { Evaluation } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
+const clerkPubKey = (() => {
+  try {
+    return publishableKeyFromHost(
+      window.location.hostname,
+      import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+    );
+  } catch {
+    return undefined;
+  }
+})();
+const clerkEnabled = Boolean(clerkPubKey);
+
+function Show({ when, children }: { when: "signed-in" | "signed-out"; children?: ReactNode }) {
+  if (clerkEnabled) return <ClerkShow when={when}>{children}</ClerkShow>;
+  return when === "signed-out" ? <>{children}</> : null;
+}
+
+function useClerk() {
+  return clerkEnabled ? useClerkReal() : { signOut: (_opts?: unknown) => {} };
+}
+
+function AuthUnavailable() {
+  return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10"><p className="max-w-sm text-center text-sm text-muted-foreground">O login está indisponível neste ambiente.</p></div>;
+}
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 function stripBase(path: string): string {
@@ -335,10 +355,12 @@ function Apply() {
 }
 
 function SignInPage() {
+  if (!clerkEnabled) return <AuthUnavailable />;
   return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10"><SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} /></div>;
 }
 
 function SignUpPage() {
+  if (!clerkEnabled) return <AuthUnavailable />;
   return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10"><SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} /></div>;
 }
 
@@ -388,6 +410,7 @@ function AppRoutes() {
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+  if (!clerkEnabled) return <AppRoutes />;
   return <ClerkProvider
     publishableKey={clerkPubKey}
     proxyUrl={clerkProxyUrl}
