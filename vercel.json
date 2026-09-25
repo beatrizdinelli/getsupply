@@ -3,9 +3,12 @@
   "outputDirectory": "artifacts/getsupply-app/dist/public",
   "rewrites": [
     {
+      "source": "/fornecedores",
+      "destination": "/fornecedores.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "cleanUrls": true
+  ]
 }
