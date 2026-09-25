@@ -2,18 +2,31 @@
 
 > Plataforma B2B para encontrar fornecedores de embalagens, criar pedidos de cotação (RFQ) e comparar propostas de preço, prazo e pedido mínimo (MOQ). Foco em marcas early-stage no Brasil.
 
-## Páginas principais
+## Proposta de valor
 
-- [Início](https://getsupply-api-server-6vdh.vercel.app/): apresentação do produto e como funciona.
-- [Fornecedores](https://getsupply-api-server-6vdh.vercel.app/suppliers): catálogo de fornecedores de embalagens com avaliação, região e MOQ.
+GetSupply conecta marcas em início de operação a fornecedores de embalagens, no volume certo e dentro do prazo, sem pesquisa dispersa: o comprador descreve o que precisa uma única vez e compara as propostas recebidas lado a lado.
+
+## Público
+
+- Compradores: fundadores de marcas físicas em estágio inicial que compram embalagem personalizada em lote pequeno ou médio.
+- Fornecedores: fabricantes e gráficas de embalagens que querem receber pedidos de cotação.
 
 ## Como funciona
 
-1. O comprador cria um pedido de cotação com categoria, especificação, quantidade, prazo e região.
+1. O comprador cria um pedido de cotação com categoria, especificação, quantidade, prazo e região de entrega.
 2. Fornecedores verificados enviam propostas com preço, prazo e MOQ.
 3. O comprador compara as propostas e escolhe.
+
+## Páginas públicas
+
+- [Início](https://getsupply-api-server-6vdh.vercel.app/): apresentação do produto e como funciona.
+- [Fornecedores](https://getsupply-api-server-6vdh.vercel.app/suppliers): catálogo de fornecedores de embalagens com avaliação, região e MOQ.
+- [Papelaria Aurora](https://getsupply-api-server-6vdh.vercel.app/suppliers/s1): caixas e papel, São Paulo, SP.
+- [Norte Flex](https://getsupply-api-server-6vdh.vercel.app/suppliers/s2): sacolas e embalagens flexíveis, Blumenau, SC.
+- [Ateliê do Rótulo](https://getsupply-api-server-6vdh.vercel.app/suppliers/s3): rótulos e adesivos, Belo Horizonte, MG.
+- [Casa da Embalagem](https://getsupply-api-server-6vdh.vercel.app/suppliers/s4): caixas e kits, Curitiba, PR.
 
 ## Observações
 
 - Idioma do conteúdo: português do Brasil.
-- Áreas de pedidos, propostas e mensagens exigem login e não são públicas.
+- Criar pedidos de cotação, ver propostas e mensagens exige login e não é público.
