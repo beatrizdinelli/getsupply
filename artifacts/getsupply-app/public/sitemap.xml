@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://frail-madeup-cgi.replit.app/</loc>
+    <loc>https://getsupply-api-server-6vdh.vercel.app/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://frail-madeup-cgi.replit.app/suppliers</loc>
+    <loc>https://getsupply-api-server-6vdh.vercel.app/suppliers</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://frail-madeup-cgi.replit.app/roadmap</loc>
+    <loc>https://getsupply-api-server-6vdh.vercel.app/roadmap</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
