@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://frail-madeup-cgi.replit.app/sitemap.xml
+Sitemap: https://getsupply-api-server-6vdh.vercel.app/sitemap.xml

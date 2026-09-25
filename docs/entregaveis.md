@@ -1,6 +1,6 @@
 # Entregáveis — GetSupply
 
-Site publicado: https://frail-madeup-cgi.replit.app
+Site publicado: https://getsupply-api-server-6vdh.vercel.app
 
 ## 1. Title, Meta Description e H1
 
