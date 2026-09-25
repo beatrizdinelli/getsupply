@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { siteMeta } from '@/lib/site-meta';
 
 type PageMeta = {
   title?: string;
@@ -7,35 +8,31 @@ type PageMeta = {
 };
 
 function setContent(selector: string, value: string) {
-  const el = document.querySelector(selector);
-  if (!el) return () => {};
-  const previous = el.getAttribute('content');
-  el.setAttribute('content', value);
-  return () => {
-    if (previous !== null) el.setAttribute('content', previous);
-  };
+  document.querySelector(selector)?.setAttribute('content', value);
+}
+
+function applyTitle(title: string) {
+  document.title = title;
+  setContent('meta[property="og:title"]', title);
+  setContent('meta[name="twitter:title"]', title);
+}
+
+function applyDescription(description: string) {
+  setContent('meta[name="description"]', description);
+  setContent('meta[property="og:description"]', description);
+  setContent('meta[name="twitter:description"]', description);
 }
 
 export function usePageMeta({ title, description, robots }: PageMeta) {
   useEffect(() => {
-    const restores: Array<() => void> = [];
+    if (title) applyTitle(title);
+    if (description) applyDescription(description);
+    if (robots) setContent('meta[name="robots"]', robots);
 
-    if (title) {
-      const previous = document.title;
-      document.title = title;
-      restores.push(() => {
-        document.title = previous;
-      });
-      restores.push(setContent('meta[property="og:title"]', title));
-      restores.push(setContent('meta[name="twitter:title"]', title));
-    }
-    if (description) {
-      restores.push(setContent('meta[name="description"]', description));
-      restores.push(setContent('meta[property="og:description"]', description));
-      restores.push(setContent('meta[name="twitter:description"]', description));
-    }
-    if (robots) restores.push(setContent('meta[name="robots"]', robots));
-
-    return () => restores.forEach((restore) => restore());
+    return () => {
+      if (title) applyTitle(siteMeta.title);
+      if (description) applyDescription(siteMeta.description);
+      if (robots) setContent('meta[name="robots"]', siteMeta.robots);
+    };
   }, [title, description, robots]);
 }
