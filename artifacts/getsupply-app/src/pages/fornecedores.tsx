@@ -33,12 +33,14 @@ const registration = [
   'Região',
 ];
 
+export const fornecedoresMeta = {
+  title: 'Seja fornecedor GetSupply | Receba cotações de embalagens',
+  description:
+    'Cadastre sua gráfica ou fábrica de embalagens, receba pedidos de cotação de marcas em crescimento e envie propostas com preço, prazo e MOQ.',
+};
+
 export default function Fornecedores() {
-  usePageMeta({
-    title: 'Seja fornecedor GetSupply | Receba cotações de embalagens',
-    description:
-      'Cadastre sua gráfica ou fábrica de embalagens, receba pedidos de cotação de marcas em crescimento e envie propostas com preço, prazo e MOQ.',
-  });
+  usePageMeta(fornecedoresMeta);
 
   return (
     <div className="min-h-screen bg-background pb-12 text-foreground">
