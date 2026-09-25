@@ -1,6 +1,13 @@
 {
   "buildCommand": "PORT=3000 BASE_PATH=/ pnpm --filter @workspace/getsupply-app run build",
   "outputDirectory": "artifacts/getsupply-app/dist/public",
+  "redirects": [
+    {
+      "source": "/fornecedores.html",
+      "destination": "/fornecedores",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/fornecedores",
