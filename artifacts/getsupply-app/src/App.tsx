@@ -67,18 +67,17 @@ import {
 import type { Evaluation } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const clerkPubKey = (() => {
-  if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY && !import.meta.env.VITE_CLERK_PROXY_URL) {
-    return undefined;
+  const envKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+  if (clerkProxyUrl) {
+    try {
+      return publishableKeyFromHost(window.location.hostname, envKey);
+    } catch {
+      return undefined;
+    }
   }
-  try {
-    return publishableKeyFromHost(
-      window.location.hostname,
-      import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-    );
-  } catch {
-    return undefined;
-  }
+  return envKey || undefined;
 })();
 const clerkEnabled = Boolean(clerkPubKey);
 
@@ -94,8 +93,6 @@ function useClerk() {
 function AuthUnavailable() {
   return <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-10"><p className="max-w-sm text-center text-sm text-muted-foreground">O login está indisponível neste ambiente.</p></div>;
 }
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
     ? path.slice(basePath.length) || "/"

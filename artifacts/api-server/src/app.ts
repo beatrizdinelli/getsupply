@@ -53,13 +53,16 @@ app.post(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const isReplit = Boolean(process.env.REPL_ID || process.env.REPLIT_DOMAINS);
 app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
+  isReplit
+    ? clerkMiddleware((req) => ({
+        publishableKey: publishableKeyFromHost(
+          getClerkProxyHost(req) ?? "",
+          process.env.CLERK_PUBLISHABLE_KEY,
+        ),
+      }))
+    : clerkMiddleware(),
 );
 
 app.use("/api", router);
