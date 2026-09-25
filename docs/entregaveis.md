@@ -71,7 +71,8 @@ Também disponível no site, na página `/roadmap`.
 
 ## 4. PostHog
 
-- O snippet oficial está em `artifacts/getsupply-app/index.html`.
-- A chave pública do projeto (`phc_...`, região US) está direto no snippet; ela só permite enviar eventos.
-- Pageviews de navegação (SPA) são capturados automaticamente (`defaults: "2025-05-24"`).
-- Host configurado: `https://us.i.posthog.com` (troque no `index.html` se o projeto for da região EU).
+- **Biblioteca:** `posthog-js`, instalada no app (`artifacts/getsupply-app`).
+- **Inicialização:** `artifacts/getsupply-app/src/lib/posthog.ts`, chamada em `artifacts/getsupply-app/src/main.tsx` antes de o app ser renderizado.
+- **Variáveis de ambiente:** `VITE_POSTHOG_KEY` (chave do projeto, começa com `phc_`) e, opcionalmente, `VITE_POSTHOG_HOST` (padrão `https://us.i.posthog.com`, região US). Sem a chave, o PostHog fica desativado e o site funciona normalmente. Nenhuma chave está escrita no código.
+- **Eventos:** `$pageview` na abertura e a cada navegação interna (`capture_pageview: 'history_change'`). Cada evento traz a URL e o caminho (`$current_url`, `$pathname`), além de navegador, dispositivo e a propriedade `app: getsupply`.
+- **Como conferir:** no PostHog, em Activity, aba Live events, procure por `$pageview` com a propriedade `app = getsupply`.
