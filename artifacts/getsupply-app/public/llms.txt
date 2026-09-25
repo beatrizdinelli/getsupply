@@ -6,7 +6,6 @@
 
 - [Início](https://getsupply-api-server-6vdh.vercel.app/): apresentação do produto e como funciona.
 - [Fornecedores](https://getsupply-api-server-6vdh.vercel.app/suppliers): catálogo de fornecedores de embalagens com avaliação, região e MOQ.
-- [Roadmap](https://getsupply-api-server-6vdh.vercel.app/roadmap): próximas 5 features do produto, com score de priorização.
 
 ## Como funciona
 
