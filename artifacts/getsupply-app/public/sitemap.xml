@@ -11,6 +11,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://getsupply-api-server-6vdh.vercel.app/fornecedores</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://getsupply-api-server-6vdh.vercel.app/suppliers/s1</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

@@ -21,6 +21,7 @@ GetSupply conecta marcas em início de operação a fornecedores de embalagens, 
 
 - [Início](https://getsupply-api-server-6vdh.vercel.app/): apresentação do produto e como funciona.
 - [Fornecedores](https://getsupply-api-server-6vdh.vercel.app/suppliers): catálogo de fornecedores de embalagens com avaliação, região e MOQ.
+- [Para fornecedores](https://getsupply-api-server-6vdh.vercel.app/fornecedores): como cadastrar sua empresa e receber pedidos de cotação de embalagens.
 - [Papelaria Aurora](https://getsupply-api-server-6vdh.vercel.app/suppliers/s1): caixas e papel, São Paulo, SP.
 - [Norte Flex](https://getsupply-api-server-6vdh.vercel.app/suppliers/s2): sacolas e embalagens flexíveis, Blumenau, SC.
 - [Ateliê do Rótulo](https://getsupply-api-server-6vdh.vercel.app/suppliers/s3): rótulos e adesivos, Belo Horizonte, MG.
