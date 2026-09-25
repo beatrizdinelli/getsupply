@@ -66,6 +66,9 @@ import type { Evaluation } from "@workspace/api-client-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const clerkPubKey = (() => {
+  if (!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY && !import.meta.env.VITE_CLERK_PROXY_URL) {
+    return undefined;
+  }
   try {
     return publishableKeyFromHost(
       window.location.hostname,
