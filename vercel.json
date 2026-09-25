@@ -5,7 +5,7 @@
     {
       "source": "/fornecedores.html",
       "destination": "/fornecedores",
-      "permanent": false
+      "permanent": true
     }
   ],
   "rewrites": [
