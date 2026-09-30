@@ -1,21 +1,3 @@
 {
-  "buildCommand": "node scripts/vercel-build.mjs",
-  "outputDirectory": "artifacts/getsupply-app/dist/public",
-  "redirects": [
-    {
-      "source": "/fornecedores.html",
-      "destination": "/fornecedores",
-      "permanent": true
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/fornecedores",
-      "destination": "/fornecedores.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "buildCommand": "node scripts/vercel-build.mjs"
 }
