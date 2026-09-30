@@ -12,5 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    env: {
+      VITE_CLERK_PUBLISHABLE_KEY: "pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk",
+    },
   },
 });

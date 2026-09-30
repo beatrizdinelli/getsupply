@@ -25,10 +25,13 @@ const initialForm: SupplierRegistrationInput = {
   region: "",
 };
 
+const stripeDisabled = import.meta.env.VITE_STRIPE_CONNECT_DISABLED === "true";
+
 export function SupplierRegistration() {
   const [form, setForm] = useState(initialForm);
+  const [registered, setRegistered] = useState(false);
   const [checking, setChecking] = useState(
-    new URLSearchParams(window.location.search).has("stripe"),
+    !stripeDisabled && new URLSearchParams(window.location.search).has("stripe"),
   );
   const [connected, setConnected] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +80,11 @@ export function SupplierRegistration() {
     setError("");
     try {
       await registerSupplier(form);
+      if (stripeDisabled) {
+        setRegistered(true);
+        setSubmitting(false);
+        return;
+      }
       const { url } = await createConnectOnboarding();
       window.location.assign(url);
     } catch (cause) {
@@ -88,6 +96,23 @@ export function SupplierRegistration() {
       setSubmitting(false);
     }
   };
+
+  if (registered) {
+    return (
+      <Card className="mx-auto max-w-lg">
+        <CardContent className="p-10 text-center">
+          <Check className="mx-auto h-10 w-10 text-primary" />
+          <h1 className="mt-4 font-serif text-3xl">Recebemos seu cadastro.</h1>
+          <p className="mt-3 text-muted-foreground">
+            Nossa equipe vai analisar os detalhes e entrar em contato em breve.
+          </p>
+          <Link href="/suppliers" className="mt-6 inline-flex">
+            <Button>Conhecer fornecedores</Button>
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (checking) {
     return (
@@ -128,7 +153,7 @@ export function SupplierRegistration() {
   const returningFromStripe = new URLSearchParams(window.location.search).has(
     "stripe",
   );
-  if (returningFromStripe) {
+  if (returningFromStripe && !stripeDisabled) {
     return (
       <Card className="mx-auto max-w-lg">
         <CardHeader>
@@ -164,8 +189,9 @@ export function SupplierRegistration() {
         Cadastre-se e receba com segurança.
       </h1>
       <p className="mt-3 leading-7 text-muted-foreground">
-        Depois do cadastro, você preencherá seus dados bancários diretamente no
-        Stripe. A GetSupply não armazena essas informações.
+        {stripeDisabled
+          ? "Conte sobre sua operação. Nossa equipe analisa cada cadastro e entra em contato."
+          : "Depois do cadastro, você preencherá seus dados bancários diretamente no Stripe. A GetSupply não armazena essas informações."}
       </p>
       <Card className="mt-8">
         <CardHeader>
@@ -241,7 +267,9 @@ export function SupplierRegistration() {
             >
               {submitting
                 ? "Preparando sua conta..."
-                : "Cadastrar e conectar ao Stripe"}
+                : stripeDisabled
+                  ? "Enviar cadastro"
+                  : "Cadastrar e conectar ao Stripe"}
               <ArrowRight />
             </Button>
           </form>
