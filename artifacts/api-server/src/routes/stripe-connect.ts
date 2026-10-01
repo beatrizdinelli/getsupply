@@ -247,6 +247,10 @@ router.post(
       res.status(409).json({ error: "Esta proposta já foi paga." });
       return;
     }
+    if (record.proposal.status === "recusada") {
+      res.status(409).json({ error: "Esta proposta foi recusada." });
+      return;
+    }
     if (
       !record.supplier?.stripeAccountId ||
       !record.supplier.stripeOnboardingComplete

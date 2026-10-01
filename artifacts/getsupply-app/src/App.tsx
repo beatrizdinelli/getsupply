@@ -21,7 +21,7 @@ import { shadcn } from "@clerk/themes";
 import { ptBR } from "@clerk/localizations";
 import { ChatWidget } from "./components/ChatWidget";
 import { PaymentSuccess } from "./components/PaymentSuccess";
-import { ProposalCheckoutWidget } from "./components/ProposalCheckoutWidget";
+import { ProposalDecision } from "./components/ProposalDecision";
 import { SupplierRegistration } from "./components/SupplierRegistration";
 import { SupplierDashboard } from "./components/SupplierDashboard";
 import Roadmap from "./pages/roadmap";
@@ -59,7 +59,6 @@ import { SupplierCard } from "@workspace/getsupply-design-system/components/ui/s
 import { StatusBadge } from "@workspace/getsupply-design-system/components/ui/status-badge";
 import {
   createEvaluation,
-  createProposal,
   createRfq,
   getRfq,
   listEvaluations,
@@ -350,12 +349,11 @@ function RfqDetail() {
   const suppliers = seedSuppliers;
   const [r, setR] = useState<RFQ | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [form, setForm] = useState({ supplierId: "s1", price: "", leadTime: "", moq: "", note: "" });
   useEffect(() => { if (!id) return; Promise.all([getRfq(id), listProposals(id)]).then(([rfq, items]) => { setR(rfq); setProposals(items); }); }, [id]);
   if (!r) return <Shell><p className="py-16 text-center text-sm text-muted-foreground">Carregando RFQ...</p></Shell>;
   const invited = r.supplierIds.length ? suppliers.filter((s) => r.supplierIds.includes(s.id)) : suppliers;
-  const submit = async (e: any) => { e.preventDefault(); const supplier = suppliers.find((s) => s.id === form.supplierId)!; const proposal = await createProposal(r.id, { supplierId: supplier.id, supplierName: supplier.companyName, price: Number(form.price), leadTime: form.leadTime, moq: form.moq, note: form.note }); setProposals([proposal, ...proposals]); setR({ ...r, status: "received" }); setForm({ ...form, price: "", leadTime: "", moq: "", note: "" }); };
-  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Visão geral</Link><div><div className="flex gap-2"><Badge variant="secondary">{r.category}</Badge><StatusBadge status={r.status} /></div><h1 className="mt-3 font-serif text-4xl">{r.title}</h1><p className="mt-2 text-muted-foreground">{r.quantity} · prazo {r.deadline} · {r.region}</p></div><div className="mt-8 grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle>Especificações</CardTitle></CardHeader><CardContent><p className="text-sm leading-7 text-muted-foreground">{r.specification}</p><h3 className="mt-7 text-sm font-semibold">Fornecedores convidados ({invited.length})</h3><div className="mt-3 space-y-2">{invited.map((s) => <Link href={`/suppliers/${s.id}`} className="flex items-center justify-between rounded-lg bg-secondary/60 p-3 text-sm" key={s.id}><span className="font-medium">{s.companyName}</span><span className="text-muted-foreground">{s.rating} <Star className="inline h-3 w-3 fill-primary text-primary" /></span></Link>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Propostas recebidas</CardTitle></CardHeader><CardContent className="space-y-3">{proposals.map((p) => <div className="rounded-lg border p-4" key={p.id} data-testid={`card-proposal-${p.id}`}><div className="flex justify-between"><b>{p.supplierName}</b><strong className="text-primary">R$ {p.price.toLocaleString("pt-BR")}</strong></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span><Clock3 className="mr-1 inline h-3 w-3" />{p.leadTime}</span><span>MOQ {p.moq}</span></div>{p.note && <p className="mt-3 text-sm text-muted-foreground">{p.note}</p>}{p.status === "accepted" && <ProposalEvaluation proposal={p} />}</div>)}{!proposals.length && <p className="py-6 text-sm text-muted-foreground">As propostas aparecerão aqui quando os fornecedores responderem.</p>}</CardContent></Card></div><Card className="mt-6"><CardHeader><CardTitle>Enviar uma proposta de demonstração</CardTitle></CardHeader><CardContent><form onSubmit={submit} className="grid gap-4 sm:grid-cols-5"><select value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })} className="h-9 rounded-md border bg-transparent px-3 text-sm">{invited.map((s) => <option value={s.id} key={s.id}>{s.companyName}</option>)}</select><Input required placeholder="Preço total (R$)" type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /><Input required aria-label="Prazo de entrega" type="date" value={form.leadTime} onChange={(e) => setForm({ ...form, leadTime: e.target.value })} /><Input required placeholder="MOQ (un.)" value={form.moq} onChange={(e) => setForm({ ...form, moq: e.target.value })} /><Button type="submit"><Send />Enviar</Button></form></CardContent></Card></Shell>;
+  const replaceProposal = (updated: Proposal) => setProposals((items) => items.map((p) => (p.id === updated.id ? updated : p)));
+  return <Shell><Link href="/" className="mb-6 inline-flex items-center text-sm text-muted-foreground"><ChevronLeft className="mr-1 h-4 w-4" />Visão geral</Link><div><div className="flex gap-2"><Badge variant="secondary">{r.category}</Badge><StatusBadge status={r.status} /></div><h1 className="mt-3 font-serif text-4xl">{r.title}</h1><p className="mt-2 text-muted-foreground">{r.quantity} · prazo {r.deadline} · {r.region}</p></div><div className="mt-8 grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle>Especificações</CardTitle></CardHeader><CardContent><p className="text-sm leading-7 text-muted-foreground">{r.specification}</p><h3 className="mt-7 text-sm font-semibold">Fornecedores convidados ({invited.length})</h3><div className="mt-3 space-y-2">{invited.map((s) => <Link href={`/suppliers/${s.id}`} className="flex items-center justify-between rounded-lg bg-secondary/60 p-3 text-sm" key={s.id}><span className="font-medium">{s.companyName}</span><span className="text-muted-foreground">{s.rating} <Star className="inline h-3 w-3 fill-primary text-primary" /></span></Link>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Propostas recebidas</CardTitle></CardHeader><CardContent className="space-y-3">{proposals.map((p) => <div className="rounded-lg border p-4" key={p.id} data-testid={`card-proposal-${p.id}`}><div className="flex justify-between"><b>{p.supplierName}</b><strong className="text-primary">R$ {p.price.toLocaleString("pt-BR")}</strong></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span><Clock3 className="mr-1 inline h-3 w-3" />{p.leadTime}</span><span>MOQ {p.moq}</span></div>{p.note && <p className="mt-3 text-sm text-muted-foreground">{p.note}</p>}<ProposalDecision proposal={p} onChange={replaceProposal} />{p.status === "accepted" && <ProposalEvaluation proposal={p} />}</div>)}{!proposals.length && <p className="py-6 text-sm text-muted-foreground">As propostas aparecerão aqui quando os fornecedores responderem.</p>}</CardContent></Card></div></Shell>;
 }
 
 function Apply() {
@@ -420,7 +418,7 @@ function AppRoutes() {
         </Shell>
       </Route>
     </Switch>
-    <Show when="signed-in"><ProposalCheckoutWidget /><ChatWidget /></Show>
+    <Show when="signed-in"><ChatWidget /></Show>
   </>;
 }
 

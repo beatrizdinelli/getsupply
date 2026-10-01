@@ -7,7 +7,20 @@ type StripeCredentials = {
   webhookSecret?: string;
 };
 
+// Na Vercel as chaves vêm das variáveis de ambiente; no Replit, do conector.
+export function stripeEnvCredentials(): StripeCredentials | null {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!secretKey) return null;
+  return {
+    secretKey,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET?.trim() || undefined,
+  };
+}
+
 async function getStripeCredentials(): Promise<StripeCredentials> {
+  const fromEnv = stripeEnvCredentials();
+  if (fromEnv) return fromEnv;
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const token = process.env.REPL_IDENTITY
     ? `repl ${process.env.REPL_IDENTITY}`

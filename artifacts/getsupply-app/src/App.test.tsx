@@ -65,6 +65,16 @@ const { state, listEvaluations, createEvaluation } = vi.hoisted(() => {
   return { state, listEvaluations, createEvaluation };
 });
 
+const { rejectProposal, createProposalCheckout } = vi.hoisted(() => ({
+  rejectProposal: vi.fn(),
+  createProposalCheckout: vi.fn(),
+}));
+
+vi.mock("./lib/stripe-payments", () => ({
+  rejectProposal,
+  createProposalCheckout,
+}));
+
 vi.mock("@workspace/api-client-react", () => ({
   chatSupplier: vi.fn(),
   createEvaluation,
@@ -172,4 +182,38 @@ test("o formulário de RFQ mostra o erro devolvido pela API", async () => {
 
   await user.type(screen.getByPlaceholderText("Ex.: 1.200 unidades"), "1");
   expect(screen.queryByTestId("status-rfq-error")).toBeNull();
+});
+
+test("o comprador recusa uma proposta em aberto com motivo", async () => {
+  const user = userEvent.setup();
+  rejectProposal.mockResolvedValueOnce({ ...pendingProposal, status: "rejected" });
+  render(<App />);
+
+  expect(await screen.findByTestId("button-pay-proposal-pending")).toBeTruthy();
+  expect(screen.queryByTestId("button-pay-proposal-accepted")).toBeNull();
+
+  await user.click(screen.getByTestId("button-reject-proposal-pending"));
+  await user.type(
+    screen.getByTestId("input-reject-reason-proposal-pending"),
+    "Prazo longo demais",
+  );
+  await user.click(screen.getByTestId("button-confirm-reject-proposal-pending"));
+
+  expect(rejectProposal).toHaveBeenCalledWith("proposal-pending", "Prazo longo demais");
+  const card = screen.getByTestId("card-proposal-proposal-pending");
+  await waitFor(() => expect(card.textContent).toContain("Recusada"));
+  expect(screen.queryByTestId("button-pay-proposal-pending")).toBeNull();
+});
+
+test("mostra o erro quando o pagamento não pode começar", async () => {
+  const user = userEvent.setup();
+  createProposalCheckout.mockRejectedValueOnce(
+    new Error("O fornecedor ainda não habilitou recebimentos pelo Stripe."),
+  );
+  render(<App />);
+
+  await user.click(await screen.findByTestId("button-pay-proposal-pending"));
+  expect(
+    (await screen.findByTestId("status-decision-error-proposal-pending")).textContent,
+  ).toBe("O fornecedor ainda não habilitou recebimentos pelo Stripe.");
 });

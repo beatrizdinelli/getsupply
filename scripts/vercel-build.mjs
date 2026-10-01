@@ -21,7 +21,6 @@ rmSync(output, { recursive: true, force: true });
 run("pnpm", ["--filter", "@workspace/getsupply-app", "run", "build"], {
   PORT: "3000",
   BASE_PATH: "/",
-  VITE_STRIPE_CONNECT_DISABLED: "true",
 });
 
 mkdirSync(fn, { recursive: true });

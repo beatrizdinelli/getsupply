@@ -17,7 +17,10 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 import { requireSupplier } from "./lib/require-supplier";
 import { uploadSupplierLogo } from "./lib/supplier-logo";
-import { processStripeWebhook } from "./lib/stripe-webhooks";
+import {
+  InvalidStripeWebhookError,
+  processStripeWebhook,
+} from "./lib/stripe-webhooks";
 
 const app: Express = express();
 
@@ -54,7 +57,15 @@ app.post(
       res.status(400).json({ error: "Assinatura Stripe ausente." });
       return;
     }
-    await processStripeWebhook(req.body as Buffer, normalizedSignature);
+    try {
+      await processStripeWebhook(req.body as Buffer, normalizedSignature);
+    } catch (err) {
+      if (err instanceof InvalidStripeWebhookError) {
+        res.status(400).json({ error: "Assinatura Stripe inválida." });
+        return;
+      }
+      throw err;
+    }
     res.status(200).json({ received: true });
   },
 );
