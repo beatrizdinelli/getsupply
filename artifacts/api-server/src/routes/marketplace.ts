@@ -61,6 +61,18 @@ function positiveInteger(value: string): number | null {
     : null;
 }
 
+// Lê uma quantidade digitada em formato brasileiro ("1.200 unidades",
+// "2500 un."). O ponto é separador de milhar; vírgula indica fração, que
+// não faz sentido para unidades, então "1,5" é rejeitado em vez de virar 15.
+function unitQuantity(value: string): number | null {
+  const tokens = value.match(/\d[\d.,]*/g);
+  if (!tokens || tokens.length !== 1) return null;
+  const token = tokens[0].replace(/[.,]$/, "");
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)$/.test(token)) return null;
+  const number = Number(token.replace(/\./g, ""));
+  return number > 0 && number <= MAX_INTEGER ? number : null;
+}
+
 function validDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   // Date.parse aceita datas inexistentes como 2030-02-31; o Postgres não.
@@ -164,7 +176,7 @@ router.post("/rfqs", async (req, res): Promise<void> => {
     }
   }
 
-  const quantity = positiveInteger(body.data.quantity);
+  const quantity = unitQuantity(body.data.quantity);
   if (!quantity || !validDate(body.data.deadline)) {
     res.status(400).json({ error: "Quantidade ou prazo inválido." });
     return;
@@ -244,7 +256,7 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
   const params = CreateProposalParams.safeParse(req.params);
   const body = CreateProposalBody.safeParse(req.body);
   const rfqId = params.success ? numericId(params.data.rfqId, "rfq") : null;
-  const moq = body.success ? positiveInteger(body.data.moq) : null;
+  const moq = body.success ? unitQuantity(body.data.moq) : null;
   const supplierId = body.success
     ? positiveInteger(body.data.supplierId ?? "")
     : null;
