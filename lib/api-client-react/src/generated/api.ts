@@ -29,6 +29,7 @@ import type {
   ProposalInput,
   Rfq,
   RfqInput,
+  Supplier,
   SupplierChatInput,
   SupplierChatResponse
 } from './api.schemas';
@@ -731,6 +732,161 @@ export const useCreateEvaluation = <TError = ErrorType<Error>,
       > => {
       return useMutation(getCreateEvaluationMutationOptions(options));
     }
+
+export const getListSuppliersUrl = () => {
+
+
+
+
+  return `/api/suppliers`
+}
+
+/**
+ * Public directory of registered suppliers, newest first.
+ * @summary List suppliers
+ */
+export const listSuppliers = async ( options?: Parameters<typeof customFetch>[1]): Promise<Supplier[]> => {
+
+  return customFetch<Supplier[]>(getListSuppliersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSuppliersQueryKey = () => {
+    return [
+    `/api/suppliers`
+    ] as const;
+    }
+
+
+export const getListSuppliersQueryOptions = <TData = Awaited<ReturnType<typeof listSuppliers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSuppliers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSuppliersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSuppliers>>> = ({ signal }) => listSuppliers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSuppliers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSuppliersQueryResult = NonNullable<Awaited<ReturnType<typeof listSuppliers>>>
+export type ListSuppliersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List suppliers
+ */
+
+export function useListSuppliers<TData = Awaited<ReturnType<typeof listSuppliers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSuppliers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSuppliersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSupplierUrl = (id: string,) => {
+
+
+
+
+  return `/api/suppliers/${id}`
+}
+
+/**
+ * @summary Get a supplier
+ */
+export const getSupplier = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Supplier> => {
+
+  return customFetch<Supplier>(getGetSupplierUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSupplierQueryKey = (id: string,) => {
+    return [
+    `/api/suppliers/${id}`
+    ] as const;
+    }
+
+
+export const getGetSupplierQueryOptions = <TData = Awaited<ReturnType<typeof getSupplier>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupplier>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSupplierQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSupplier>>> = ({ signal }) => getSupplier(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSupplier>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSupplierQueryResult = NonNullable<Awaited<ReturnType<typeof getSupplier>>>
+export type GetSupplierQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Get a supplier
+ */
+
+export function useGetSupplier<TData = Awaited<ReturnType<typeof getSupplier>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSupplier>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSupplierQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getChatSupplierUrl = () => {
 

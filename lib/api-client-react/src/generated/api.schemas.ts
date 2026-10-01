@@ -110,6 +110,28 @@ export interface EvaluationInput {
   comment?: string;
 }
 
+export interface Supplier {
+  id: string;
+  companyName: string;
+  cnpj: string;
+  region: string;
+  categories: string[];
+  /** @nullable */
+  moq: number | null;
+  /** @nullable */
+  capacity: string | null;
+  /** @nullable */
+  logoUrl: string | null;
+  verified: boolean;
+  /**
+     * @minimum 0
+     * @maximum 5
+     */
+  rating: number;
+  /** @minimum 0 */
+  reviewCount: number;
+}
+
 export type ChatMessageRole = typeof ChatMessageRole[keyof typeof ChatMessageRole];
 
 

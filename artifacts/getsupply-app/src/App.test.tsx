@@ -81,8 +81,10 @@ vi.mock("@workspace/api-client-react", () => ({
     status: "received",
     supplierIds: ["s1", "s2"],
   })),
+  getSupplier: vi.fn(),
   listEvaluations,
   listProposals: vi.fn(async () => [acceptedProposal, pendingProposal]),
+  listSuppliers: vi.fn(async () => []),
 }));
 
 beforeEach(() => {

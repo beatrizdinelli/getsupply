@@ -20,6 +20,8 @@ tags:
     description: Session operations
   - name: chat
     description: AI-assisted supplier search
+  - name: suppliers
+    description: Public supplier directory
 paths:
   /healthz:
     get:
@@ -217,6 +219,47 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Proposal already evaluated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [suppliers]
+      summary: List suppliers
+      description: Public directory of registered suppliers, newest first.
+      responses:
+        "200":
+          description: Suppliers ordered from newest to oldest
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supplier"
+  /suppliers/{id}:
+    get:
+      operationId: getSupplier
+      tags: [suppliers]
+      summary: Get a supplier
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "400":
+          description: Invalid supplier id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Supplier not found
           content:
             application/json:
               schema:
@@ -452,6 +495,48 @@ components:
           type: string
       required:
         - score
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: string
+        companyName:
+          type: string
+        cnpj:
+          type: string
+        region:
+          type: string
+        categories:
+          type: array
+          items:
+            type: string
+        moq:
+          type: ["number", "null"]
+        capacity:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        verified:
+          type: boolean
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+        reviewCount:
+          type: number
+          minimum: 0
+      required:
+        - id
+        - companyName
+        - cnpj
+        - region
+        - categories
+        - moq
+        - capacity
+        - logoUrl
+        - verified
+        - rating
+        - reviewCount
     ChatMessage:
       type: object
       properties:
