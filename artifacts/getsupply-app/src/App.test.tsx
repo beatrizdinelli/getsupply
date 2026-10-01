@@ -38,6 +38,8 @@ const pendingProposal = {
   status: "pending",
 };
 
+const listProposalsMock = vi.hoisted(() => vi.fn());
+
 const { state, listEvaluations, createEvaluation } = vi.hoisted(() => {
   const state = {
     persistedEvaluation: null as {
@@ -65,14 +67,16 @@ const { state, listEvaluations, createEvaluation } = vi.hoisted(() => {
   return { state, listEvaluations, createEvaluation };
 });
 
-const { rejectProposal, createProposalCheckout } = vi.hoisted(() => ({
+const { rejectProposal, createProposalCheckout, acceptProposal } = vi.hoisted(() => ({
   rejectProposal: vi.fn(),
   createProposalCheckout: vi.fn(),
+  acceptProposal: vi.fn(),
 }));
 
 vi.mock("./lib/stripe-payments", () => ({
   rejectProposal,
   createProposalCheckout,
+  acceptProposal,
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
@@ -93,17 +97,22 @@ vi.mock("@workspace/api-client-react", () => ({
     supplierIds: ["s1", "s2"],
   })),
   listEvaluations,
-  listProposals: vi.fn(async () => [acceptedProposal, pendingProposal]),
+  listProposals: listProposalsMock,
 }));
 
 beforeEach(() => {
+  listProposalsMock.mockImplementation(async () => [acceptedProposal, pendingProposal]);
+  createProposalCheckout.mockReset();
   state.persistedEvaluation = null;
   listEvaluations.mockClear();
   createEvaluation.mockClear();
   window.history.replaceState({}, "", "/rfqs/rfq-journey");
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
 test("a avaliação salva reaparece após recarregar e propostas não aceitas não exibem o formulário", async () => {
   const user = userEvent.setup();
@@ -216,4 +225,22 @@ test("mostra o erro quando o pagamento não pode começar", async () => {
   expect(
     (await screen.findByTestId("status-decision-error-proposal-pending")).textContent,
   ).toBe("O fornecedor ainda não habilitou recebimentos pelo Stripe.");
+});
+
+test("sem Stripe, o comprador aceita a proposta sem passar pelo checkout", async () => {
+  const user = userEvent.setup();
+  vi.stubEnv("VITE_STRIPE_CONNECT_DISABLED", "true");
+  acceptProposal.mockResolvedValueOnce({ ...pendingProposal, status: "accepted" });
+  render(<App />);
+
+  const accept = await screen.findByTestId("button-pay-proposal-pending");
+  expect(accept.textContent).toContain("Aceitar proposta");
+  const loadsBefore = listProposalsMock.mock.calls.length;
+  await user.click(accept);
+
+  expect(acceptProposal).toHaveBeenCalledWith("proposal-pending");
+  expect(createProposalCheckout).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(listProposalsMock.mock.calls.length).toBeGreaterThan(loadsBefore),
+  );
 });

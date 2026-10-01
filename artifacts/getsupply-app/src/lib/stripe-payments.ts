@@ -64,3 +64,10 @@ export function rejectProposal(proposalId: string, reason: string) {
     { method: "POST", body: JSON.stringify({ reason }) },
   );
 }
+
+export function acceptProposal(proposalId: string) {
+  return apiRequest<Proposal>(
+    `/proposals/${encodeURIComponent(proposalId)}/accept`,
+    { method: "POST" },
+  );
+}

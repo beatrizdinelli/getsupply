@@ -17,6 +17,14 @@ export function stripeEnvCredentials(): StripeCredentials | null {
   };
 }
 
+// Sem Stripe configurado (nem chave no ambiente, nem conector do Replit),
+// o comprador aceita propostas sem passar pelo checkout.
+export function stripeConfigured(): boolean {
+  return Boolean(
+    stripeEnvCredentials() || process.env.REPLIT_CONNECTORS_HOSTNAME,
+  );
+}
+
 async function getStripeCredentials(): Promise<StripeCredentials> {
   const fromEnv = stripeEnvCredentials();
   if (fromEnv) return fromEnv;

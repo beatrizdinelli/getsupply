@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { TransactionRollbackError, and, desc, eq, ne } from "drizzle-orm";
 import {
   categoriesTable,
   db,
@@ -26,6 +26,7 @@ import {
   ListRfqsResponse,
 } from "@workspace/api-zod";
 import { requireBuyer } from "../lib/require-buyer";
+import { stripeConfigured } from "../lib/stripe-client";
 
 const router: IRouter = Router();
 
@@ -310,6 +311,82 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
   });
 
   res.status(201).json(CreateProposalResponse.parse(mapProposal(proposal)));
+});
+
+router.post("/proposals/:proposalId/accept", async (req, res): Promise<void> => {
+  const buyerId = await requireBuyer(req, res);
+  if (!buyerId) return;
+  if (stripeConfigured()) {
+    res
+      .status(409)
+      .json({ error: "Esta proposta precisa ser paga pelo checkout." });
+    return;
+  }
+  const proposalId = numericId(req.params.proposalId ?? "", "proposal");
+  if (!proposalId) {
+    res.status(400).json({ error: "Proposta inválida." });
+    return;
+  }
+
+  const [owned] = await db
+    .select({ proposal: proposalsTable, rfqStatus: rfqsTable.status })
+    .from(proposalsTable)
+    .innerJoin(rfqsTable, eq(proposalsTable.rfqId, rfqsTable.id))
+    .where(and(eq(proposalsTable.id, proposalId), eq(rfqsTable.buyerId, buyerId)))
+    .limit(1);
+  if (!owned) {
+    res.status(404).json({ error: "Proposta não encontrada." });
+    return;
+  }
+
+  const accepted = await db.transaction(async (tx) => {
+    // As condições no UPDATE impedem aceitar duas propostas da mesma RFQ
+    // ou uma proposta que já foi recusada.
+    const [closed] = await tx
+      .update(rfqsTable)
+      .set({ status: "fechado" })
+      .where(and(eq(rfqsTable.id, owned.proposal.rfqId), ne(rfqsTable.status, "fechado")))
+      .returning({ id: rfqsTable.id });
+    if (!closed) return null;
+    const [proposal] = await tx
+      .update(proposalsTable)
+      .set({ status: "aceita", decisionDate: new Date() })
+      .where(and(eq(proposalsTable.id, proposalId), eq(proposalsTable.status, "enviada")))
+      .returning();
+    if (!proposal) {
+      tx.rollback();
+      return null;
+    }
+    await tx
+      .update(proposalsTable)
+      .set({
+        status: "recusada",
+        decisionDate: new Date(),
+        rejectionReason: "Outra proposta foi aceita.",
+      })
+      .where(
+        and(
+          eq(proposalsTable.rfqId, proposal.rfqId),
+          ne(proposalsTable.id, proposal.id),
+          eq(proposalsTable.status, "enviada"),
+        ),
+      );
+    return proposal;
+  }).catch((err: unknown) => {
+    if (err instanceof TransactionRollbackError) return null;
+    throw err;
+  });
+
+  if (!accepted) {
+    res.status(409).json({
+      error:
+        owned.proposal.status === "recusada"
+          ? "Esta proposta já foi recusada."
+          : "Esta RFQ já tem uma proposta aceita.",
+    });
+    return;
+  }
+  res.json(mapProposal(accepted));
 });
 
 router.post("/proposals/:proposalId/reject", async (req, res): Promise<void> => {

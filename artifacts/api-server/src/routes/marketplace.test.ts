@@ -63,6 +63,15 @@ function numericId(id: string, prefix: string): number {
   return Number(id.slice(prefix.length + 1));
 }
 
+async function buyerIdFor(clerkUserId: string): Promise<number | undefined> {
+  const [buyer] = await db
+    .select({ id: buyersTable.id })
+    .from(buyersTable)
+    .where(eq(buyersTable.clerkUserId, clerkUserId))
+    .limit(1);
+  return buyer?.id;
+}
+
 async function assertSeedDataAvailable(): Promise<void> {
   const result = await pool.query<{ nome: string }>(
     "select nome from categoria where nome = any($1::text[]) order by nome",
@@ -126,23 +135,21 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
 
   const session = await request("/sessions/buyer", { method: "POST" });
   assert.equal(session.response.status, 200);
-  const buyersAfterSession = await db
-    .select({ id: buyersTable.id })
-    .from(buyersTable);
-  buyerId = buyersAfterSession
-    .map(({ id }) => id)
-    .find((id) => !buyerIdsBeforeSession.includes(id));
-  assert.ok(buyerId, "a sessão deve persistir um novo comprador");
+  // Busca pelo usuário do Clerk: outros arquivos de teste rodam em paralelo
+  // e também criam compradores.
+  buyerId = await buyerIdFor("test-buyer-a");
+  assert.ok(
+    buyerId && !buyerIdsBeforeSession.includes(buyerId),
+    "a sessão deve persistir um novo comprador",
+  );
 
   const buyerBSession = await requestAsBuyerB("/sessions/buyer", { method: "POST" });
   assert.equal(buyerBSession.response.status, 200);
-  const buyersAfterBothSessions = await db
-    .select({ id: buyersTable.id })
-    .from(buyersTable);
-  buyerBId = buyersAfterBothSessions
-    .map(({ id }) => id)
-    .find((id) => id !== buyerId && !buyerIdsBeforeSession.includes(id));
-  assert.ok(buyerBId, "a segunda sessão deve persistir outro comprador");
+  buyerBId = await buyerIdFor("test-buyer-b");
+  assert.ok(
+    buyerBId && buyerBId !== buyerId && !buyerIdsBeforeSession.includes(buyerBId),
+    "a segunda sessão deve persistir outro comprador",
+  );
 
   const emptyBuyerBList = await requestAsBuyerB("/rfqs");
   assert.equal(emptyBuyerBList.response.status, 200);
