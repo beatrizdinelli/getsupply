@@ -54,6 +54,7 @@ export const suppliersTable = pgTable("fornecedor", {
   region: varchar("regiao", { length: 120 }).notNull(),
   productionCapacity: text("capacidade_produtiva"),
   standardMoq: integer("moq_padrao"),
+  logoUrl: varchar("logo_url", { length: 500 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

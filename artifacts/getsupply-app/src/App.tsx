@@ -23,6 +23,7 @@ import { ChatWidget } from "./components/ChatWidget";
 import { PaymentSuccess } from "./components/PaymentSuccess";
 import { ProposalCheckoutWidget } from "./components/ProposalCheckoutWidget";
 import { SupplierRegistration } from "./components/SupplierRegistration";
+import { SupplierDashboard } from "./components/SupplierDashboard";
 import Roadmap from "./pages/roadmap";
 import Fornecedores from "./pages/fornecedores";
 import { usePageMeta } from "./hooks/use-page-meta";
@@ -396,6 +397,7 @@ function AppRoutes() {
       <Route path="/suppliers/:id" component={SupplierProfile} />
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/supplier/apply">{() => <ProtectedPage><Shell><SupplierRegistration /></Shell></ProtectedPage>}</Route>
+      <Route path="/supplier/dashboard">{() => <ProtectedPage><Shell><SupplierDashboard /></Shell></ProtectedPage>}</Route>
       <Route path="/" component={HomeRedirect} />
       <Route>
         <Shell>

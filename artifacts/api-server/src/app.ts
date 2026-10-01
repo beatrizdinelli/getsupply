@@ -2,7 +2,9 @@ import express, { type Express } from "express";
 import cors from "cors";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
+import { eq } from "drizzle-orm";
 import pinoHttp from "pino-http";
+import { db, suppliersTable } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import {
@@ -10,6 +12,8 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { requireSupplier } from "./lib/require-supplier";
+import { uploadSupplierLogo } from "./lib/supplier-logo";
 import { processStripeWebhook } from "./lib/stripe-webhooks";
 
 const app: Express = express();
@@ -63,6 +67,29 @@ app.use(
         ),
       }))
     : clerkMiddleware(),
+);
+
+app.post(
+  "/api/suppliers/me/logo",
+  express.raw({
+    type: ["image/png", "image/jpeg", "image/webp"],
+    limit: "4mb",
+  }),
+  async (req, res): Promise<void> => {
+    const supplier = await requireSupplier(req, res);
+    if (!supplier) return;
+    if (!Buffer.isBuffer(req.body) || !req.body.length) {
+      res.status(400).json({ error: "Envie uma imagem válida (PNG, JPEG ou WebP)." });
+      return;
+    }
+    const contentType = req.headers["content-type"] ?? "image/jpeg";
+    const logoUrl = await uploadSupplierLogo(supplier.id, req.body, contentType);
+    await db
+      .update(suppliersTable)
+      .set({ logoUrl })
+      .where(eq(suppliersTable.id, supplier.id));
+    res.json({ logoUrl });
+  },
 );
 
 app.use("/api", router);
