@@ -163,7 +163,7 @@ router.post("/rfqs", async (req, res): Promise<void> => {
   if (!buyerId) return;
   const body = CreateRfqBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ error: body.error.message });
+    res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
     return;
   }
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { createRfq } from "@workspace/api-client-react";
 import App from "./App";
 
 vi.mock("@clerk/react", () => ({
@@ -136,4 +137,39 @@ test("a avaliação salva reaparece após recarregar e propostas não aceitas n�
     screen.queryByTestId("form-evaluation-proposal-pending"),
   ).toBeNull();
   expect(listEvaluations).toHaveBeenCalledTimes(2);
+});
+test("o formulário de RFQ mostra o erro devolvido pela API", async () => {
+  const user = userEvent.setup();
+  vi.mocked(createRfq)
+    .mockRejectedValueOnce(
+      Object.assign(new Error("HTTP 400"), {
+        status: 400,
+        data: { error: "Quantidade ou prazo inválido." },
+      }),
+    )
+    .mockRejectedValueOnce(
+      Object.assign(new Error("HTTP 500"), {
+        status: 500,
+        data: { error: "Erro interno. Tente novamente." },
+      }),
+    );
+  window.history.replaceState({}, "", "/rfqs/new");
+  render(<App />);
+
+  const submit = await screen.findByRole("button", { name: /Criar RFQ/ });
+  await user.click(submit);
+  expect((await screen.findByTestId("status-rfq-error")).textContent).toBe(
+    "Quantidade ou prazo inválido.",
+  );
+  expect(window.location.pathname).toBe("/rfqs/new");
+
+  await user.click(submit);
+  await waitFor(() =>
+    expect(screen.getByTestId("status-rfq-error").textContent).toBe(
+      "Não foi possível criar a RFQ. Tente novamente.",
+    ),
+  );
+
+  await user.type(screen.getByPlaceholderText("Ex.: 1.200 unidades"), "1");
+  expect(screen.queryByTestId("status-rfq-error")).toBeNull();
 });
