@@ -1,25 +1,38 @@
 import { useState } from "react";
-import { CreditCard, LoaderCircle, X } from "lucide-react";
+import { Check, CreditCard, LoaderCircle, X } from "lucide-react";
 import type { Proposal } from "@workspace/api-client-react";
 import { Button } from "@workspace/getsupply-design-system/components/ui/button";
 import { Textarea } from "@workspace/getsupply-design-system/components/ui/textarea";
 import { StatusBadge } from "@workspace/getsupply-design-system/components/ui/status-badge";
-import { createProposalCheckout, rejectProposal } from "../lib/stripe-payments";
+import {
+  acceptProposal,
+  createProposalCheckout,
+  rejectProposal,
+} from "../lib/stripe-payments";
+
+// Mesmo sinal que desliga o onboarding do fornecedor: sem Stripe, o aceite
+// não passa pelo checkout.
+function paymentsAreDisabled() {
+  return import.meta.env.VITE_STRIPE_CONNECT_DISABLED === "true";
+}
 
 export function ProposalDecision({
   proposal,
   onChange,
+  onAccepted,
 }: {
   proposal: Pick<Proposal, "id"> & { status: string };
   onChange: (proposal: Proposal) => void;
+  onAccepted: () => void;
 }) {
   const [busy, setBusy] = useState<"pay" | "reject" | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const paymentsDisabled = paymentsAreDisabled();
 
   if (proposal.status === "accepted") {
-    return <div className="mt-3"><StatusBadge status="closed" label="Paga" /></div>;
+    return <div className="mt-3"><StatusBadge status="closed" label={paymentsDisabled ? "Aceita" : "Paga"} /></div>;
   }
   if (proposal.status === "rejected") {
     return <div className="mt-3"><StatusBadge status="delayed" label="Recusada" /></div>;
@@ -29,13 +42,20 @@ export function ProposalDecision({
     setBusy("pay");
     setError("");
     try {
+      if (paymentsDisabled) {
+        await acceptProposal(proposal.id);
+        onAccepted();
+        return;
+      }
       const { url } = await createProposalCheckout(proposal.id);
       window.location.assign(url);
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Não foi possível iniciar o pagamento.",
+          : paymentsDisabled
+            ? "Não foi possível aceitar a proposta."
+            : "Não foi possível iniciar o pagamento.",
       );
       setBusy(null);
     }
@@ -97,8 +117,16 @@ export function ProposalDecision({
             onClick={pay}
             data-testid={`button-pay-${proposal.id}`}
           >
-            {busy === "pay" ? <LoaderCircle className="animate-spin" /> : <CreditCard />}
-            {busy === "pay" ? "Abrindo..." : "Aceitar e pagar"}
+            {busy === "pay" ? (
+              <LoaderCircle className="animate-spin" />
+            ) : paymentsDisabled ? (
+              <Check />
+            ) : (
+              <CreditCard />
+            )}
+            {busy === "pay"
+              ? paymentsDisabled ? "Aceitando..." : "Abrindo..."
+              : paymentsDisabled ? "Aceitar proposta" : "Aceitar e pagar"}
           </Button>
           <Button
             size="sm"
