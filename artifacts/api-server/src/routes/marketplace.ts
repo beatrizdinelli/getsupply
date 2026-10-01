@@ -50,15 +50,30 @@ function numericId(value: string, prefix: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+// Limite da coluna INTEGER do Postgres.
+const MAX_INTEGER = 2_147_483_647;
+
 function positiveInteger(value: string): number | null {
   const digits = value.replace(/\D/g, "");
   const number = Number(digits);
-  return Number.isInteger(number) && number > 0 ? number : null;
+  return Number.isInteger(number) && number > 0 && number <= MAX_INTEGER
+    ? number
+    : null;
 }
 
 function validDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  // Date.parse aceita datas inexistentes como 2030-02-31; o Postgres não.
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
+
+// Tamanhos das colunas varchar em lib/db/src/schema.
+const rfqFieldLimits = {
+  title: { max: 200, label: "Nome do projeto" },
+  category: { max: 80, label: "Categoria" },
+  region: { max: 120, label: "Região de entrega" },
+} as const;
 
 function mapRfq(row: {
   rfq: typeof rfqsTable.$inferSelect;
@@ -138,6 +153,15 @@ router.post("/rfqs", async (req, res): Promise<void> => {
   if (!body.success) {
     res.status(400).json({ error: body.error.message });
     return;
+  }
+
+  for (const [field, { max, label }] of Object.entries(rfqFieldLimits)) {
+    if (body.data[field as keyof typeof rfqFieldLimits].length > max) {
+      res
+        .status(400)
+        .json({ error: `${label} deve ter no máximo ${max} caracteres.` });
+      return;
+    }
   }
 
   const quantity = positiveInteger(body.data.quantity);

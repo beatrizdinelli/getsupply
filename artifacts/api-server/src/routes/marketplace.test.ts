@@ -169,6 +169,26 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
     deadline: "2030-12-20",
     region: "São Paulo - SP",
   };
+
+  // Entradas que o banco rejeitaria devem virar 400, não 500.
+  for (const override of [
+    { quantity: "10000000000 unidades" },
+    { deadline: "2030-02-31" },
+    { title: "a".repeat(201) },
+    { category: "a".repeat(81) },
+    { region: "a".repeat(121) },
+  ]) {
+    const rejected = await request("/rfqs", {
+      method: "POST",
+      body: JSON.stringify({ ...rfqPayload, ...override }),
+    });
+    assert.equal(
+      rejected.response.status,
+      400,
+      `${JSON.stringify(override).slice(0, 60)} deve ser rejeitado`,
+    );
+  }
+
   const createdRfq = await request("/rfqs", {
     method: "POST",
     body: JSON.stringify({ ...rfqPayload, buyerId: buyerBId }),
