@@ -163,7 +163,7 @@ router.post("/rfqs", async (req, res): Promise<void> => {
   if (!buyerId) return;
   const body = CreateRfqBody.safeParse(req.body);
   if (!body.success) {
-    res.status(400).json({ error: body.error.message });
+    res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
     return;
   }
 
@@ -310,6 +310,57 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
   });
 
   res.status(201).json(CreateProposalResponse.parse(mapProposal(proposal)));
+});
+
+router.post("/proposals/:proposalId/reject", async (req, res): Promise<void> => {
+  const buyerId = await requireBuyer(req, res);
+  if (!buyerId) return;
+  const proposalId = numericId(req.params.proposalId ?? "", "proposal");
+  if (!proposalId) {
+    res.status(400).json({ error: "Proposta inválida." });
+    return;
+  }
+  const reason =
+    typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (reason.length > 500) {
+    res
+      .status(400)
+      .json({ error: "O motivo deve ter no máximo 500 caracteres." });
+    return;
+  }
+
+  const [owned] = await db
+    .select({ proposal: proposalsTable })
+    .from(proposalsTable)
+    .innerJoin(rfqsTable, eq(proposalsTable.rfqId, rfqsTable.id))
+    .where(and(eq(proposalsTable.id, proposalId), eq(rfqsTable.buyerId, buyerId)))
+    .limit(1);
+  if (!owned) {
+    res.status(404).json({ error: "Proposta não encontrada." });
+    return;
+  }
+
+  // Só recusa o que ainda está em aberto; a condição no UPDATE evita
+  // sobrescrever uma proposta paga entre a leitura e a escrita.
+  const [rejected] = await db
+    .update(proposalsTable)
+    .set({
+      status: "recusada",
+      decisionDate: new Date(),
+      rejectionReason: reason || null,
+    })
+    .where(and(eq(proposalsTable.id, proposalId), eq(proposalsTable.status, "enviada")))
+    .returning();
+  if (!rejected) {
+    res.status(409).json({
+      error:
+        owned.proposal.status === "aceita"
+          ? "Esta proposta já foi paga."
+          : "Esta proposta já foi recusada.",
+    });
+    return;
+  }
+  res.json(mapProposal(rejected));
 });
 
 router.get("/proposals/:proposalId/evaluations", async (req, res): Promise<void> => {

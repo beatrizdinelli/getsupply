@@ -1,7 +1,9 @@
-import type Stripe from "stripe";
+import Stripe from "stripe";
 import { and, eq, ne } from "drizzle-orm";
 import { db, proposalsTable, rfqsTable, suppliersTable } from "@workspace/db";
-import { getStripeSync } from "./stripe-client";
+import { getStripeSync, stripeEnvCredentials } from "./stripe-client";
+
+export class InvalidStripeWebhookError extends Error {}
 
 async function confirmProposalPayment(
   session: Stripe.Checkout.Session,
@@ -76,10 +78,29 @@ export async function processStripeWebhook(
     throw new Error("O webhook Stripe precisa receber o corpo bruto.");
   }
 
-  const sync = await getStripeSync();
-  await sync.processWebhook(payload, signature);
+  let event: Stripe.Event;
+  const envCredentials = stripeEnvCredentials();
+  if (envCredentials) {
+    if (!envCredentials.webhookSecret) {
+      throw new Error("STRIPE_WEBHOOK_SECRET não está configurada.");
+    }
+    try {
+      event = Stripe.webhooks.constructEvent(
+        payload,
+        signature,
+        envCredentials.webhookSecret,
+      );
+    } catch (cause) {
+      throw new InvalidStripeWebhookError(
+        cause instanceof Error ? cause.message : "Assinatura Stripe inválida.",
+      );
+    }
+  } else {
+    const sync = await getStripeSync();
+    await sync.processWebhook(payload, signature);
+    event = JSON.parse(payload.toString("utf8")) as Stripe.Event;
+  }
 
-  const event = JSON.parse(payload.toString("utf8")) as Stripe.Event;
   if (
     event.type === "checkout.session.completed" ||
     event.type === "checkout.session.async_payment_succeeded"

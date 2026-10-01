@@ -324,5 +324,40 @@ test("persiste e relê RFQ, proposta e avaliação sem alterar os seeds", async 
   assert.equal(reloadedEvaluations.response.status, 200);
   assert.deepEqual(reloadedEvaluations.body, [createdEvaluation.body]);
 
+  const hiddenRejection = await requestAsBuyerB(`/proposals/${proposal.id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason: "Acesso indevido" }),
+  });
+  assert.equal(hiddenRejection.response.status, 404);
+
+  const rejection = await request(`/proposals/${proposal.id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason: "Prazo longo demais" }),
+  });
+  assert.equal(rejection.response.status, 200);
+  assert.equal((rejection.body as { status: string }).status, "rejected");
+  const [persistedRejection] = await db
+    .select({
+      status: proposalsTable.status,
+      rejectionReason: proposalsTable.rejectionReason,
+    })
+    .from(proposalsTable)
+    .where(eq(proposalsTable.id, proposalId))
+    .limit(1);
+  assert.deepEqual(persistedRejection, {
+    status: "recusada",
+    rejectionReason: "Prazo longo demais",
+  });
+
+  const repeatedRejection = await request(`/proposals/${proposal.id}/reject`, {
+    method: "POST",
+  });
+  assert.equal(repeatedRejection.response.status, 409);
+
+  const rejectedCheckout = await request(`/proposals/${proposal.id}/checkout`, {
+    method: "POST",
+  });
+  assert.equal(rejectedCheckout.response.status, 409);
+
   await assertSeedDataAvailable();
 });

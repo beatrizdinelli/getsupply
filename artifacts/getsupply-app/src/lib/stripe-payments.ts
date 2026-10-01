@@ -1,3 +1,5 @@
+import type { Proposal } from "@workspace/api-client-react";
+
 const apiBase = `${window.location.origin}/api`;
 
 async function apiRequest<T>(
@@ -53,5 +55,12 @@ export function createProposalCheckout(proposalId: string) {
   return apiRequest<{ url: string }>(
     `/proposals/${encodeURIComponent(proposalId)}/checkout`,
     { method: "POST" },
+  );
+}
+
+export function rejectProposal(proposalId: string, reason: string) {
+  return apiRequest<Proposal>(
+    `/proposals/${encodeURIComponent(proposalId)}/reject`,
+    { method: "POST", body: JSON.stringify({ reason }) },
   );
 }
