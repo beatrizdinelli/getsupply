@@ -1,4 +1,7 @@
-import express, { type Express } from "express";
+import express, {
+  type ErrorRequestHandler,
+  type Express,
+} from "express";
 import cors from "cors";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
@@ -93,5 +96,17 @@ app.post(
 );
 
 app.use("/api", router);
+
+// Sem isto o Express responde 500 com uma página HTML e o front não
+// consegue ler o erro; aqui registramos a causa e devolvemos JSON.
+const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  req.log.error({ err }, "erro não tratado");
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  res.status(500).json({ error: "Erro interno. Tente novamente." });
+};
+app.use(errorHandler);
 
 export default app;

@@ -50,15 +50,42 @@ function numericId(value: string, prefix: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+// Limite da coluna INTEGER do Postgres.
+const MAX_INTEGER = 2_147_483_647;
+
 function positiveInteger(value: string): number | null {
   const digits = value.replace(/\D/g, "");
   const number = Number(digits);
-  return Number.isInteger(number) && number > 0 ? number : null;
+  return Number.isInteger(number) && number > 0 && number <= MAX_INTEGER
+    ? number
+    : null;
+}
+
+// Lê uma quantidade digitada em formato brasileiro ("1.200 unidades",
+// "2500 un."). O ponto é separador de milhar; vírgula indica fração, que
+// não faz sentido para unidades, então "1,5" é rejeitado em vez de virar 15.
+function unitQuantity(value: string): number | null {
+  const tokens = value.match(/\d[\d.,]*/g);
+  if (!tokens || tokens.length !== 1) return null;
+  const token = tokens[0].replace(/[.,]$/, "");
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)$/.test(token)) return null;
+  const number = Number(token.replace(/\./g, ""));
+  return number > 0 && number <= MAX_INTEGER ? number : null;
 }
 
 function validDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  // Date.parse aceita datas inexistentes como 2030-02-31; o Postgres não.
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
+
+// Tamanhos das colunas varchar em lib/db/src/schema.
+const rfqFieldLimits = {
+  title: { max: 200, label: "Nome do projeto" },
+  category: { max: 80, label: "Categoria" },
+  region: { max: 120, label: "Região de entrega" },
+} as const;
 
 function mapRfq(row: {
   rfq: typeof rfqsTable.$inferSelect;
@@ -140,7 +167,16 @@ router.post("/rfqs", async (req, res): Promise<void> => {
     return;
   }
 
-  const quantity = positiveInteger(body.data.quantity);
+  for (const [field, { max, label }] of Object.entries(rfqFieldLimits)) {
+    if (body.data[field as keyof typeof rfqFieldLimits].length > max) {
+      res
+        .status(400)
+        .json({ error: `${label} deve ter no máximo ${max} caracteres.` });
+      return;
+    }
+  }
+
+  const quantity = unitQuantity(body.data.quantity);
   if (!quantity || !validDate(body.data.deadline)) {
     res.status(400).json({ error: "Quantidade ou prazo inválido." });
     return;
@@ -220,7 +256,7 @@ router.post("/rfqs/:rfqId/proposals", async (req, res): Promise<void> => {
   const params = CreateProposalParams.safeParse(req.params);
   const body = CreateProposalBody.safeParse(req.body);
   const rfqId = params.success ? numericId(params.data.rfqId, "rfq") : null;
-  const moq = body.success ? positiveInteger(body.data.moq) : null;
+  const moq = body.success ? unitQuantity(body.data.moq) : null;
   const supplierId = body.success
     ? positiveInteger(body.data.supplierId ?? "")
     : null;
