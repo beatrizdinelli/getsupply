@@ -21,6 +21,11 @@ rmSync(output, { recursive: true, force: true });
 run("pnpm", ["--filter", "@workspace/getsupply-app", "run", "build"], {
   PORT: "3000",
   BASE_PATH: "/",
+  // Sem chave do Stripe, o cadastro de fornecedor não tenta abrir o
+  // onboarding (que falharia) e vai direto para o painel.
+  VITE_STRIPE_CONNECT_DISABLED:
+    process.env.VITE_STRIPE_CONNECT_DISABLED ??
+    (process.env.STRIPE_SECRET_KEY ? "false" : "true"),
 });
 
 mkdirSync(fn, { recursive: true });
