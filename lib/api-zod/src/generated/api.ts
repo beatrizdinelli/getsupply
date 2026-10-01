@@ -206,6 +206,62 @@ export const CreateEvaluationResponse = zod.object({
 
 
 /**
+ * Public directory of registered suppliers, newest first.
+ * @summary List suppliers
+ */
+export const listSuppliersResponseRatingMin = 0;
+export const listSuppliersResponseRatingMax = 5;
+
+export const listSuppliersResponseReviewCountMin = 0;
+
+
+
+export const ListSuppliersResponseItem = zod.object({
+  "id": zod.string(),
+  "companyName": zod.string(),
+  "cnpj": zod.string(),
+  "region": zod.string(),
+  "categories": zod.array(zod.string()),
+  "moq": zod.number().nullable(),
+  "capacity": zod.string().nullable(),
+  "logoUrl": zod.string().nullable(),
+  "verified": zod.boolean(),
+  "rating": zod.number().min(listSuppliersResponseRatingMin).max(listSuppliersResponseRatingMax),
+  "reviewCount": zod.number().min(listSuppliersResponseReviewCountMin)
+})
+export const ListSuppliersResponse = zod.array(ListSuppliersResponseItem)
+
+
+/**
+ * @summary Get a supplier
+ */
+export const GetSupplierParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const getSupplierResponseRatingMin = 0;
+export const getSupplierResponseRatingMax = 5;
+
+export const getSupplierResponseReviewCountMin = 0;
+
+
+
+export const GetSupplierResponse = zod.object({
+  "id": zod.string(),
+  "companyName": zod.string(),
+  "cnpj": zod.string(),
+  "region": zod.string(),
+  "categories": zod.array(zod.string()),
+  "moq": zod.number().nullable(),
+  "capacity": zod.string().nullable(),
+  "logoUrl": zod.string().nullable(),
+  "verified": zod.boolean(),
+  "rating": zod.number().min(getSupplierResponseRatingMin).max(getSupplierResponseRatingMax),
+  "reviewCount": zod.number().min(getSupplierResponseReviewCountMin)
+})
+
+
+/**
  * @summary Search verified suppliers with the GetSupply assistant
  */
 export const chatSupplierBodyHistoryItemContentMax = 2000;

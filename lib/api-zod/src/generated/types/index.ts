@@ -19,6 +19,7 @@ export * from './proposalStatus';
 export * from './rfq';
 export * from './rfqInput';
 export * from './rfqStatus';
+export * from './supplier';
 export * from './supplierChatInput';
 export * from './supplierChatResponse';
 export * from './supplierSuggestion';
