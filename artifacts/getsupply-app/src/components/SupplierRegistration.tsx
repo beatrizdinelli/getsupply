@@ -106,8 +106,8 @@ export function SupplierRegistration() {
           <p className="mt-3 text-muted-foreground">
             Nossa equipe vai analisar os detalhes e entrar em contato em breve.
           </p>
-          <Link href="/suppliers" className="mt-6 inline-flex">
-            <Button>Conhecer fornecedores</Button>
+          <Link href="/supplier/dashboard" className="mt-6 inline-flex">
+            <Button>Ir para meu painel</Button>
           </Link>
         </CardContent>
       </Card>
@@ -142,8 +142,8 @@ export function SupplierRegistration() {
             Sua conta Stripe Connect está pronta para receber os pagamentos das
             propostas aceitas.
           </p>
-          <Link href="/suppliers" className="mt-6 inline-flex">
-            <Button>Conhecer o catálogo</Button>
+          <Link href="/supplier/dashboard" className="mt-6 inline-flex">
+            <Button>Ir para meu painel</Button>
           </Link>
         </CardContent>
       </Card>

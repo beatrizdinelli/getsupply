@@ -1,14 +1,14 @@
 import { Router, type IRouter, type Request } from "express";
 import { and, eq } from "drizzle-orm";
 import {
-  categoriesTable,
   db,
   proposalsTable,
   rfqsTable,
-  supplierCategoriesTable,
   suppliersTable,
 } from "@workspace/db";
 import { getClerkUserId, requireBuyer } from "../lib/require-buyer";
+import { requireSupplier } from "../lib/require-supplier";
+import { saveSupplierCategories } from "../lib/supplier-categories";
 import { getUncachableStripeClient } from "../lib/stripe-client";
 import { getClerkProxyHost } from "../middlewares/clerkProxyMiddleware";
 
@@ -29,31 +29,6 @@ function positiveInteger(value: string): number | null {
   const normalized = value.replace(/\D/g, "");
   const number = Number(normalized);
   return Number.isInteger(number) && number > 0 ? number : null;
-}
-
-function normalizeCategory(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
-async function saveSupplierCategories(
-  supplierId: number,
-  requested: unknown,
-): Promise<void> {
-  if (typeof requested !== "string") return;
-  const wanted = new Set(
-    requested.split(/[,;]+/).map(normalizeCategory).filter(Boolean),
-  );
-  if (!wanted.size) return;
-  const categories = await db.select().from(categoriesTable);
-  const matches = categories
-    .filter((category) => wanted.has(normalizeCategory(category.name)))
-    .map((category) => ({ supplierId, categoryId: category.id }));
-  if (!matches.length) return;
-  await db.insert(supplierCategoriesTable).values(matches).onConflictDoNothing();
 }
 
 router.post("/suppliers/register", async (req, res): Promise<void> => {
@@ -118,20 +93,8 @@ router.post("/suppliers/register", async (req, res): Promise<void> => {
 router.post(
   "/suppliers/connect/onboarding",
   async (req, res): Promise<void> => {
-    const clerkUserId = getClerkUserId(req);
-    if (!clerkUserId) {
-      res.status(401).json({ error: "Entre para configurar os recebimentos." });
-      return;
-    }
-    const [supplier] = await db
-      .select()
-      .from(suppliersTable)
-      .where(eq(suppliersTable.clerkUserId, clerkUserId))
-      .limit(1);
-    if (!supplier) {
-      res.status(404).json({ error: "Cadastre o fornecedor primeiro." });
-      return;
-    }
+    const supplier = await requireSupplier(req, res);
+    if (!supplier) return;
 
     const stripe = await getUncachableStripeClient();
     let accountId = supplier.stripeAccountId;
